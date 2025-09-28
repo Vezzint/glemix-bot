@@ -1,9 +1,9 @@
-from mistralai import Mistral
+from mistralai import MistralClient
 import asyncio
 import logging
 import random
 import aiohttp
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types,
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.exceptions import TelegramBadRequest
@@ -24,7 +24,7 @@ ADMIN_ID = 6584350034
 USER_LIMITS = {"короткий": 13, "обычный": 10, "спокойный": 15, "умный": 3}
 
 model = "mistral-large-latest"
-client = Mistral(api_key=mistral_api_key)
+client = MistralClient(api_key=mistral_api_key)
 
 chat_style: Dict[int, str] = {}
 chat_memory: Dict[int, Dict[str, Any]] = {}
@@ -767,4 +767,5 @@ async def main():
 if __name__ == "__main__":
     print("🚀 AI-помощник с системой режимов запущен!")
     asyncio.run(main())
+
 
