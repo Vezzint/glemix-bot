@@ -13,7 +13,6 @@ from mistralai import Mistral
 # =======================
 # ===== CONFIG ==========
 # =======================
-# Используем переменные окружения для безопасности
 mistral_api_key = os.getenv('MISTRAL_API_KEY', 'nIMvGkfioIpMtQeSO2n8ssm6nuJRyo7Q')
 openweather_api_key = os.getenv('OPENWEATHER_API_KEY', 'dbd08a834f628d369a8edb55b210171e')
 TOKEN = os.getenv('BOT_TOKEN', '8229856813:AAEkQq-4zdJKAmovgq69URcqKDzN4_BMqrw')
@@ -208,6 +207,8 @@ async def cmd_start(message: types.Message):
         if mode not in user_requests_count[chat_id]:
             user_requests_count[chat_id][mode] = 0
 
+    chat_memory.setdefault(chat_id, {"current_topic": None, "topics": {}})
+
     current_mode = user_modes[chat_id]
     remaining = get_user_remaining_requests(chat_id, current_mode)
 
@@ -221,6 +222,65 @@ async def cmd_start(message: types.Message):
     await message.answer(welcome_text,
                          reply_markup=get_main_keyboard(chat_id))
 
+@dp.message(Command("style"))
+async def cmd_style(message: types.Message):
+    current_style = chat_style.get(message.chat.id, "balanced")
+    style_text = ("⚙️ *Настройки стиля:*\n\n"
+                  f"Текущий: {get_style_name(current_style)}\n\n"
+                  "Варианты:\n"
+                  "• /style_balanced - сбалансированный\n"
+                  "• /style_serious - деловой\n"
+                  "• /style_friendly - неформальный")
+    await message.answer(style_text, parse_mode="Markdown")
+
+@dp.message(Command("style_friendly"))
+async def cmd_style_friendly(message: types.Message):
+    chat_style[message.chat.id] = "friendly"
+    await message.answer("💫 Стиль изменён на неформальный",
+                         reply_markup=get_main_keyboard(message.chat.id))
+
+@dp.message(Command("style_balanced"))
+async def cmd_style_balanced(message: types.Message):
+    chat_style[message.chat.id] = "balanced"
+    await message.answer("⚖️ Стиль изменён на сбалансированный",
+                         reply_markup=get_main_keyboard(message.chat.id))
+
+@dp.message(Command("style_serious"))
+async def cmd_style_serious(message: types.Message):
+    chat_style[message.chat.id] = "serious"
+    await message.answer("🎯 Стиль изменён на деловой",
+                         reply_markup=get_main_keyboard(message.chat.id))
+
+@dp.message(Command("view_memory"))
+async def view_memory(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        await message.answer("❌ У вас нет прав администратора.")
+        return
+    memory = chat_memory.get(message.chat.id, {"topics": {}})
+    await message.answer(f"🧠 Память: {memory}")
+
+@dp.message(Command("clear_memory"))
+async def clear_memory(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        await message.answer("❌ У вас нет прав администратора.")
+        return
+    chat_memory[message.chat.id] = {"current_topic": None, "topics": {}}
+    await message.answer("✅ Память очищена.")
+
+@dp.message(Command("reset_user"))
+async def reset_user(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        await message.answer("❌ У вас нет прав администратора.")
+        return
+    chat_memory.clear()
+    user_requests_count.clear()
+    user_last_messages.clear()
+    user_modes.clear()
+    await message.answer("✅ Все пользователи сброшены.")
+
+# =======================
+# ===== ОБРАБОТКА КНОПОК =====
+# =======================
 @dp.message(F.text.in_(["🚀 Старт", "ℹ️ Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤 Погода", "👑 Админ"]))
 async def handle_main_buttons(message: types.Message):
     text = message.text
@@ -352,6 +412,14 @@ async def cmd_reset(message: types.Message):
     user_modes.clear()
     await message.answer("✅ Данные сброшены")
 
+def get_style_name(style: str) -> str:
+    names = {
+        "friendly": "Неформальный 💫",
+        "balanced": "Сбалансированный ⚖️",
+        "serious": "Деловой 🎯"
+    }
+    return names.get(style, "Сбалансированный ⚖️")
+
 # =======================
 # ===== ОСНОВНОЙ ХЭНДЛЕР =====
 # =======================
@@ -431,6 +499,28 @@ async def main_handler(message: types.Message):
 
         system_prompt = system_prompts.get(mode, "Ты умный и креативный AI-помощник.")
         user_content = user_text
+
+        # Обработка reply-сообщений
+        if message.reply_to_message and message.reply_to_message.text:
+            replied_text = message.reply_to_message.text
+
+            if any(w in user_text_lower for w in [
+                    "доработать", "улучшить", "усовершенствовать", "покруче",
+                    "посоветуй", "варианты", "версии"
+            ]):
+                system_prompt = "Ты эксперт по улучшению текстов. Проанализируй текст и предложи конкретные варианты доработки."
+                user_content = f"Предложи варианты улучшения этого текста: {replied_text}"
+
+            elif any(w in user_text_lower for w in ["сократи", "сделай короче", "укороти", "кратко", "короче"]):
+                system_prompt = "Ты мастер сокращения текстов. Сохраняй основную суть и ключевые идеи."
+                user_content = f"Сократи этот текст: {replied_text}"
+
+            elif any(w in user_text_lower for w in [
+                    "нормально", "правильно", "исправить", "мнение",
+                    "что думаешь", "критика", "совет"
+            ]):
+                system_prompt = "Ты профессиональный редактор. Дай конструктивную обратную связь по тексту."
+                user_content = f"Проанализируй этот текст: {replied_text}. Вопрос: {user_text}"
 
         response = client.chat.complete(model=model,
                                         messages=[{
