@@ -1,4 +1,4 @@
-from mistralai import MistralClient
+from mistralai import Mistral
 import asyncio
 import logging
 import random
@@ -24,7 +24,7 @@ ADMIN_ID = 6584350034
 USER_LIMITS = {"короткий": 13, "обычный": 10, "спокойный": 15, "умный": 3}
 
 model = "mistral-large-latest"
-client = MistralClient(api_key=mistral_api_key)
+client = Mistral(api_key=mistral_api_key)
 
 chat_style: Dict[int, str] = {}
 chat_memory: Dict[int, Dict[str, Any]] = {}
@@ -767,6 +767,7 @@ async def main():
 if __name__ == "__main__":
     print("🚀 AI-помощник с системой режимов запущен!")
     asyncio.run(main())
+
 
 
 
