@@ -1,4 +1,2 @@
 aiogram==3.4.1
-aiohttp
-flask
-mistralai
+aiohttp==3.8.5
