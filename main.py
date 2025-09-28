@@ -3,7 +3,7 @@ import asyncio
 import logging
 import random
 import aiohttp
-from aiogram import Bot, Dispatcher, types,
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.exceptions import TelegramBadRequest
@@ -14,9 +14,9 @@ import os
 # =======================
 
 
-mistral_api_key = os.getenv('nIMvGkfioIpMtQeSO2n8ssm6nuJRyo7Q')
-openweather_api_key = os.getenv('dbd08a834f628d369a8edb55b210171e') 
-TOKEN = os.getenv('8229856813:AAEkQq-4zdJKAmovgq69URcqKDzN4_BMqrw')
+mistral_api_key = os.getenv('MISTRAL_API_KEY')  # ✅
+openweather_api_key = os.getenv('OPENWEATHER_API_KEY')  # ✅
+TOKEN = os.getenv('BOT_TOKEN')  # ✅
 
 ADMIN_ID = 6584350034
 
@@ -767,5 +767,6 @@ async def main():
 if __name__ == "__main__":
     print("🚀 AI-помощник с системой режимов запущен!")
     asyncio.run(main())
+
 
 
