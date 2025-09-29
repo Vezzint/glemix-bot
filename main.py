@@ -136,30 +136,24 @@ def get_quick_commands_keyboard() -> ReplyKeyboardMarkup:
 
 def get_admin_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[[
-        KeyboardButton(text="📈 Статистика"),
-        KeyboardButton(text="🔄 Сброс лимитов")
+        KeyboardButton(text="📈 Общая статистика"),
+        KeyboardButton(text="👥 Управление пользователями")
     ], [
-        KeyboardButton(text="🧠 Управление AI"),
-        KeyboardButton(text="👥 Пользователи")
-    ], [
-        KeyboardButton(text="⚡ Система"),
-        KeyboardButton(text="📊 Логи")
+        KeyboardButton(text="🔄 Сброс лимитов"),
+        KeyboardButton(text="⚙️ Настройки системы")
     ], [
         KeyboardButton(text="🎯 Тест AI"),
-        KeyboardButton(text="🔧 Настройки")
+        KeyboardButton(text="📊 Логи")
     ], [KeyboardButton(text="⬅️ Главное меню")]],
                                resize_keyboard=True)
 
-def get_ai_management_keyboard() -> ReplyKeyboardMarkup:
+def get_users_management_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[[
-        KeyboardButton(text="🎛️ Настройки модели"),
-        KeyboardButton(text="🔧 Параметры AI")
+        KeyboardButton(text="📊 Статистика пользователей"),
+        KeyboardButton(text="⏰ Продлить подписки")
     ], [
-        KeyboardButton(text="📝 Промпты"),
-        KeyboardButton(text="🧹 Очистка памяти")
-    ], [
-        KeyboardButton(text="🎭 Тест режимов"),
-        KeyboardButton(text="📊 Аналитика")
+        KeyboardButton(text="🔍 Поиск пользователя"),
+        KeyboardButton(text="📝 Массовая рассылка")
     ], [KeyboardButton(text="⬅️ Админ-панель")]],
                                resize_keyboard=True)
 
@@ -185,7 +179,7 @@ def is_free_period_active(chat_id: int) -> bool:
     return (datetime.now() - registration_date).days < FREE_PERIOD_DAYS
 
 def get_remaining_free_days(chat_id: int) -> int:
-    """Возвращает оставшиеся дни бесплатного периода"""
+    """Возвращает оставшиеся дней бесплатного периода"""
     if chat_id not in user_registration_date:
         user_registration_date[chat_id] = datetime.now()
     registration_date = user_registration_date[chat_id]
@@ -195,18 +189,30 @@ def get_remaining_free_days(chat_id: int) -> int:
 def get_user_remaining_requests(chat_id: int, mode: str) -> int:
     """Возвращает оставшееся количество запросов"""
     if chat_id == ADMIN_ID:
-        return 999  # Админ без лимитов
+        return 9999  # Админ без лимитов
     
     if not is_free_period_active(chat_id):
         return 0  # Бесплатный период закончился
         
-    if chat_id not in user_requests_count:
-        user_requests_count[chat_id] = {}
-    if mode not in user_requests_count[chat_id]:
-        user_requests_count[chat_id][mode] = 0
+    return 9999  # Безлимит в бесплатный период
+
+# =======================
+# ===== ПРОВЕРКА ВРЕМЕНИ ОЖИДАНИЯ =====
+# =======================
+def check_cooldown(chat_id: int) -> str:
+    """Проверяет время ожидания между запросами"""
+    if chat_id == ADMIN_ID:
+        return None  # Админы без ограничений
         
-    # Безлимитные запросы в бесплатный период
-    return 999
+    current_time = time.time()
+    last_request = user_last_request.get(chat_id, 0)
+    
+    if current_time - last_request < REQUEST_COOLDOWN:
+        remaining = REQUEST_COOLDOWN - int(current_time - last_request)
+        return f"⏳ Пожалуйста, подожди {remaining} секунд перед следующим запросом"
+    
+    user_last_request[chat_id] = current_time
+    return None
 
 # =======================
 # ===== ФУНКЦИИ ОБРАБОТКИ ТЕКСТА =====
@@ -328,7 +334,6 @@ def get_random_choice(options: str) -> str:
 
 def get_current_datetime() -> str:
     """Текущая дата и время"""
-    from datetime import datetime
     now = datetime.now()
     return (f"📅 Текущая дата и время:\n\n"
            f"• Дата: {now.strftime('%d.%m.%Y')}\n"
@@ -361,21 +366,6 @@ def get_random_surprise() -> str:
         "🦋 Иногда нужно просто расправить крылья и лететь"
     ]
     return random.choice(surprises)
-
-# =======================
-# ===== ПРОВЕРКА ВРЕМЕНИ ОЖИДАНИЯ =====
-# =======================
-def check_cooldown(chat_id: int) -> str:
-    """Проверяет время ожидания между запросами"""
-    current_time = time.time()
-    last_request = user_last_request.get(chat_id, 0)
-    
-    if current_time - last_request < REQUEST_COOLDOWN:
-        remaining = REQUEST_COOLDOWN - int(current_time - last_request)
-        return f"⏳ Пожалуйста, подожди {remaining} секунд перед следующим запросом"
-    
-    user_last_request[chat_id] = current_time
-    return None
 
 # =======================
 # ===== КОМАНДЫ =========
@@ -486,11 +476,7 @@ async def handle_help(message: types.Message):
         "Основные команды:\n"
         "• Просто напиши вопрос — получу развернутый ответ\n"
         "• Используй кнопки для быстрой навигации\n"
-        "• Ответь на сообщение для работы с текстом\n\n"
-        "Работа с контентом:\n"
-        "• Сократи текст — сделаю лаконичнее\n"
-        "• Улучши текст — предложу варианты\n"
-        "• Проанализируй — дам обратную связь\n\n"
+        "• Ответь на сообщение для работы с текстами\n\n"
         f"Твой статус:\n"
         f"Режим: {current_mode}\n"
         f"Бесплатный период: {remaining_days} дней\n"
@@ -556,7 +542,6 @@ async def handle_time(message: types.Message):
         await message.answer(cooldown_msg)
         return
 
-    from datetime import datetime
     time_text = f"⏰ Текущее время: {datetime.now().strftime('%H:%M:%S')}"
     await message.answer(time_text)
 
@@ -704,9 +689,9 @@ async def handle_info(message: types.Message):
     info_text = (
         "💎 Информационная панель\n\n"
         "Система запросов:\n"
-        "• Бесплатный период: 14 дней\n"
+        f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
         "• После окончания потребуется подписка\n"
-        "• Администраторы имеют неограниченный доступ\n\n"
+        "• Все режимы работают одинаково\n\n"
         "Особенности работы:\n"
         "• Работаю 24/7 в облачной среде\n"
         "• Поддерживаю глубокий контекст диалога\n"
@@ -757,13 +742,11 @@ async def handle_other_city(message: types.Message):
 
     await message.answer("🌍 Напиши название города для получения погоды")
 
+# =======================
+# ===== АДМИН ПАНЕЛЬ =====
+# =======================
 @dp.message(F.text == "👑 Админ-панель")
 async def handle_admin_panel(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
     if message.chat.id != ADMIN_ID:
         await message.answer("⛔ Доступ ограничен")
         return
@@ -771,142 +754,147 @@ async def handle_admin_panel(message: types.Message):
     admin_text = (
         "👑 Административная панель\n\n"
         "Доступные функции:\n"
-        "• Статистика — общая аналитика\n"
+        "• Общая статистика — аналитика системы\n"
+        "• Управление пользователями — работа с юзерами\n"
         "• Сброс лимитов — обнуление счетчиков\n"
-        "• Управление AI — настройки нейросети\n"
-        "• Пользователи — управление юзерами\n"
-        "• Система — мониторинг работы\n"
+        "• Настройки системы — конфигурация бота\n"
+        "• Тест AI — проверка работы нейросети\n"
         "• Логи — просмотр журналов")
     
     await message.answer(admin_text,
                          reply_markup=get_admin_keyboard())
 
-@dp.message(F.text == "📈 Статистика")
+@dp.message(F.text == "📈 Общая статистика")
 async def handle_admin_stats(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
     if message.chat.id != ADMIN_ID:
         return
         
     total_users = len(user_requests_count)
     total_requests = sum(sum(mode.values()) for mode in user_requests_count.values())
     active_users = sum(1 for user_id in user_requests_count if is_free_period_active(user_id))
+    expired_users = total_users - active_users
+    
+    # Статистика по режимам
+    mode_stats = {}
+    for user_data in user_requests_count.values():
+        for mode, count in user_data.items():
+            mode_stats[mode] = mode_stats.get(mode, 0) + count
     
     stats_text = (
-        f"📊 Системная статистика\n\n"
+        f"📊 Общая статистика системы\n\n"
         f"👥 Всего пользователей: {total_users}\n"
-        f"📨 Всего запросов: {total_requests}\n"
-        f"🎭 Активных режимов: {len(user_modes)}\n"
-        f"🎁 Пользователей в бесплатном периоде: {active_users}\n"
-        f"💾 Память чатов: {len(chat_memory)}")
+        f"✅ Активных: {active_users}\n"
+        f"❌ Истекших: {expired_users}\n"
+        f"📨 Всего запросов: {total_requests}\n\n"
+        f"📈 Статистика по режимам:\n")
+    
+    for mode, count in mode_stats.items():
+        stats_text += f"• {get_mode_description(mode)}: {count} запросов\n"
+    
+    stats_text += f"\n⚙️ Настройки:\n"
+    stats_text += f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
+    stats_text += f"• Время ожидания: {REQUEST_COOLDOWN} секунд\n"
+    stats_text += f"• Модель AI: {model}"
+    
+    await message.answer(stats_text)
+
+@dp.message(F.text == "👥 Управление пользователями")
+async def handle_users_management(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    users_text = (
+        "👥 Управление пользователями\n\n"
+        "Доступные функции:\n"
+        "• Статистика пользователей — детальная аналитика\n"
+        "• Продлить подписки — управление доступом\n"
+        "• Поиск пользователя — найти по ID\n"
+        "• Массовая рассылка — отправить сообщение")
+    
+    await message.answer(users_text,
+                         reply_markup=get_users_management_keyboard())
+
+@dp.message(F.text == "📊 Статистика пользователей")
+async def handle_users_stats(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    if not user_requests_count:
+        await message.answer("📊 Нет данных о пользователях")
+        return
+    
+    # Топ 10 пользователей по запросам
+    top_users = []
+    for user_id, modes in user_requests_count.items():
+        total_requests = sum(modes.values())
+        remaining_days = get_remaining_free_days(user_id)
+        status = "✅ Активен" if is_free_period_active(user_id) else "❌ Истек"
+        top_users.append((user_id, total_requests, remaining_days, status))
+    
+    # Сортируем по количеству запросов
+    top_users.sort(key=lambda x: x[1], reverse=True)
+    
+    stats_text = "📊 Топ пользователей по активности:\n\n"
+    for i, (user_id, requests, days, status) in enumerate(top_users[:10], 1):
+        stats_text += f"{i}. ID: {user_id}\n"
+        stats_text += f"   Запросы: {requests}\n"
+        stats_text += f"   Осталось дней: {days}\n"
+        stats_text += f"   Статус: {status}\n\n"
     
     await message.answer(stats_text)
 
 @dp.message(F.text == "🔄 Сброс лимитов")
 async def handle_reset_limits(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
     if message.chat.id != ADMIN_ID:
         return
         
     user_requests_count.clear()
     await message.answer("✅ Лимиты всех пользователей сброшены")
 
-@dp.message(F.text == "🧠 Управление AI")
-async def handle_ai_management(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
-    if message.chat.id != ADMIN_ID:
-        return
-        
-    ai_text = (
-        "🧠 Центр управления AI\n\n"
-        "Настройки нейросети:\n"
-        "• Настройки модели — параметры Mistral\n"
-        "• Параметры AI — тонкая настройка\n"
-        "• Промпты — системные инструкции\n"
-        "• Очистка памяти — сброс контекста")
-    
-    await message.answer(ai_text,
-                         reply_markup=get_ai_management_keyboard())
-
-@dp.message(F.text == "🎛️ Настройки модели")
-async def handle_model_settings(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
+@dp.message(F.text == "⚙️ Настройки системы")
+async def handle_system_settings(message: types.Message):
     if message.chat.id != ADMIN_ID:
         return
         
     settings_text = (
-        "🎛️ Текущие настройки модели\n\n"
-        f"Модель: {model}\n"
-        f"API ключ: {'✅ Настроен' if mistral_api_key else '❌ Отсутствует'}\n"
-        f"Стили общения: {len(chat_style)}\n"
-        f"Режимы работы: 4\n"
-        f"Бесплатный период: {FREE_PERIOD_DAYS} дней")
+        "⚙️ Настройки системы\n\n"
+        f"Текущие параметры:\n"
+        f"• Модель AI: {model}\n"
+        f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
+        f"• Время ожидания: {REQUEST_COOLDOWN} секунд\n"
+        f"• API ключ: {'✅ Настроен' if mistral_api_key else '❌ Отсутствует'}\n"
+        f"• Пользователей: {len(user_requests_count)}\n\n"
+        "Для изменения настроек требуется редактирование кода")
     
     await message.answer(settings_text)
 
-@dp.message(F.text == "👥 Пользователи")
-async def handle_users_management(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
+@dp.message(F.text == "🎯 Тест AI")
+async def handle_test_ai(message: types.Message):
     if message.chat.id != ADMIN_ID:
         return
         
-    users_text = (
-        f"👥 Управление пользователями\n\n"
-        f"Всего пользователей: {len(user_requests_count)}\n"
-        f"Активных сессий: {len(user_modes)}\n"
-        f"Использовано запросов: {sum(sum(mode.values()) for mode in user_requests_count.values())}\n"
-        f"Бесплатный период: {FREE_PERIOD_DAYS} дней")
-    
-    await message.answer(users_text)
-
-@dp.message(F.text == "⚡ Система")
-async def handle_system_info(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
-    if message.chat.id != ADMIN_ID:
-        return
+    try:
+        response = client.chat.complete(
+            model=model,
+            messages=[{
+                "role": "system", 
+                "content": "Ты AI-помощник. Ответь кратко на тестовый запрос."
+            }, {
+                "role": "user",
+                "content": "Привет! Это тестовое сообщение. Ответь что-нибудь."
+            }]
+        )
         
-    system_text = (
-        "⚡ Системная информация\n\n"
-        "Статус: ✅ Активен\n"
-        "Платформа: Railway\n"
-        "Режим работы: 24/7\n"
-        "Версия AI: Mistral Large\n"
-        "Время ожидания: 5 секунд\n"
-        "Бесплатный период: 14 дней\n"
-        "Обновление: Автоматическое")
-    
-    await message.answer(system_text)
+        if response.choices[0].message.content:
+            await message.answer(f"✅ AI работает корректно\n\nОтвет: {response.choices[0].message.content}")
+        else:
+            await message.answer("❌ AI не вернул ответ")
+            
+    except Exception as e:
+        await message.answer(f"❌ Ошибка AI: {str(e)}")
 
 @dp.message(F.text == "📊 Логи")
 async def handle_logs(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
     if message.chat.id != ADMIN_ID:
         return
         
@@ -916,11 +904,91 @@ async def handle_logs(message: types.Message):
         "• Бот запущен и работает\n"
         "• AI модель загружена\n"
         "• Погодный API доступен\n"
-        "• Пользователи активны\n"
+        f"• Пользователей: {len(user_requests_count)}\n"
         f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n\n"
         "Ошибок не обнаружено ✅")
     
     await message.answer(logs_text)
+
+@dp.message(F.text == "⏰ Продлить подписки")
+async def handle_extend_subscriptions(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    await message.answer("⏰ Функция продления подписок\n\n"
+                        "Для продления подписки пользователя:\n"
+                        "Отправьте команду в формате:\n"
+                        "/extend [ID_пользователя] [дни]\n\n"
+                        "Пример: /extend 123456789 30")
+
+@dp.message(Command("extend"))
+async def handle_extend_command(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    try:
+        parts = message.text.split()
+        if len(parts) == 3:
+            user_id = int(parts[1])
+            days = int(parts[2])
+            
+            if user_id in user_registration_date:
+                user_registration_date[user_id] = datetime.now() - timedelta(days=FREE_PERIOD_DAYS-days)
+                await message.answer(f"✅ Подписка пользователя {user_id} продлена на {days} дней")
+            else:
+                await message.answer(f"❌ Пользователь {user_id} не найден")
+        else:
+            await message.answer("❌ Неверный формат. Используйте: /extend [ID] [дни]")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
+
+@dp.message(F.text == "🔍 Поиск пользователя")
+async def handle_find_user(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    await message.answer("🔍 Поиск пользователя\n\n"
+                        "Для поиска информации о пользователе:\n"
+                        "Отправьте команду в формате:\n"
+                        "/find [ID_пользователя]\n\n"
+                        "Пример: /find 123456789")
+
+@dp.message(Command("find"))
+async def handle_find_command(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    try:
+        parts = message.text.split()
+        if len(parts) == 2:
+            user_id = int(parts[1])
+            
+            if user_id in user_requests_count:
+                modes = user_requests_count[user_id]
+                total_requests = sum(modes.values())
+                remaining_days = get_remaining_free_days(user_id)
+                status = "✅ Активен" if is_free_period_active(user_id) else "❌ Истек"
+                current_mode = user_modes.get(user_id, "не установлен")
+                
+                user_info = (
+                    f"🔍 Информация о пользователе {user_id}\n\n"
+                    f"• Статус: {status}\n"
+                    f"• Осталось дней: {remaining_days}\n"
+                    f"• Текущий режим: {current_mode}\n"
+                    f"• Всего запросов: {total_requests}\n\n"
+                    f"📊 По режимам:\n"
+                )
+                
+                for mode, count in modes.items():
+                    user_info += f"• {get_mode_description(mode)}: {count} запросов\n"
+                    
+                await message.answer(user_info)
+            else:
+                await message.answer(f"❌ Пользователь {user_id} не найден")
+        else:
+            await message.answer("❌ Неверный формат. Используйте: /find [ID]")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
 
 @dp.message(F.text == "⬅️ Назад")
 async def handle_back(message: types.Message):
@@ -944,11 +1012,6 @@ async def handle_main_menu(message: types.Message):
 
 @dp.message(F.text == "⬅️ Админ-панель")
 async def handle_back_to_admin(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
     if message.chat.id != ADMIN_ID:
         return
     await message.answer("Возвращаюсь в админ-панель",
@@ -1010,7 +1073,7 @@ async def main_handler(message: types.Message):
     if user_text.startswith("/"):
         return
 
-    # Проверка времени ожидания
+    # Проверка времени ожидания (админы пропускают)
     cooldown_msg = check_cooldown(chat_id)
     if cooldown_msg:
         await message.answer(cooldown_msg)
@@ -1018,7 +1081,6 @@ async def main_handler(message: types.Message):
 
     # Проверка бесплатного периода
     if not is_free_period_active(chat_id) and chat_id != ADMIN_ID:
-        remaining_days = 0
         await message.answer(
             f"⏳ Бесплатный период завершен\n\n"
             f"Для продолжения использования необходим доступ к подписке\n\n"
@@ -1033,14 +1095,16 @@ async def main_handler(message: types.Message):
     user_requests_count[chat_id][mode] += 1
 
     # Обработка быстрых команд
-    if "выбери" in user_text.lower() and any(sep in user_text for sep in [",", "или"]):
-        choice_text = user_text.lower().replace("выбери", "").strip()
+    user_text_lower = user_text.lower().strip()
+    
+    if "выбери" in user_text_lower and any(sep in user_text for sep in [",", "или"]):
+        choice_text = user_text_lower.replace("выбери", "").strip()
         result = get_random_choice(choice_text)
         await message.answer(result)
         return
 
-    if any(word in user_text.lower() for word in ["посчитай", "сколько будет", "="]):
-        expr = user_text.lower().replace("посчитай", "").replace("сколько будет", "").replace("=", "").strip()
+    if any(word in user_text_lower for word in ["посчитай", "сколько будет", "="]):
+        expr = user_text_lower.replace("посчитай", "").replace("сколько будет", "").replace("=", "").strip()
         result = calculate_expression(expr)
         await message.answer(result)
         return
@@ -1070,8 +1134,6 @@ async def main_handler(message: types.Message):
         }
 
         # Определяем контекст для базовых приветствий
-        user_text_lower = user_text.lower().strip()
-        
         if any(word in user_text_lower for word in ["привет", "здравствуй", "добрый", "хай", "hello", "hi"]):
             system_prompt = "Ты дружелюбный AI-помощник. Ответь на приветствие тепло и позитивно, но кратко. 1-2 предложения."
         elif any(word in user_text_lower for word in ["пока", "до свидания", "прощай", "bye", "goodbye"]):
@@ -1138,4 +1200,5 @@ if __name__ == "__main__":
     print("🚀 Бот запущен и работает 24/7 на Railway!")
     print(f"🎁 Бесплатный период: {FREE_PERIOD_DAYS} дней")
     print("⏳ Система ожидания: 5 секунд между запросами")
+    print("👑 Админ-панель: доступна для ADMIN_ID")
     asyncio.run(main())
