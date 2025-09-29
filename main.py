@@ -3,6 +3,7 @@ import logging
 import random
 import aiohttp
 import time
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
@@ -20,16 +21,12 @@ TOKEN = os.getenv('BOT_TOKEN', '8229856813:AAEkQq-4zdJKAmovgq69URcqKDzN4_BMqrw')
 
 ADMIN_ID = 6584350034
 
-# Лимиты запросов для разных режимов
-USER_LIMITS = {
-    "спокойный": 15,
-    "обычный": 10, 
-    "короткий": 13,
-    "умный": 3
-}
+# Бесплатный период (2 недели)
+FREE_PERIOD_DAYS = 14
+user_registration_date: Dict[int, datetime] = {}
 
 # Время ожидания между запросами (секунды)
-REQUEST_COOLDOWN = 10
+REQUEST_COOLDOWN = 5
 
 model = "mistral-large-latest"
 client = Mistral(api_key=mistral_api_key)
@@ -72,10 +69,6 @@ def get_main_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
                    KeyboardButton(text="⚙️ Настройки"),
                    KeyboardButton(text="❓ Помощь"),
                    KeyboardButton(text="🌤️ Погода")
-               ],
-               [
-                   KeyboardButton(text="🎲 Рандомное число"),
-                   KeyboardButton(text="💡 Идея дня")
                ]]
     if chat_id == ADMIN_ID:
         buttons.append([KeyboardButton(text="👑 Админ-панель")])
@@ -99,12 +92,12 @@ def get_settings_keyboard() -> ReplyKeyboardMarkup:
 def get_mode_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[[
-            KeyboardButton(text="🧘 Спокойный (15)"),
-            KeyboardButton(text="💬 Обычный (10)")
+            KeyboardButton(text="🧘 Спокойный"),
+            KeyboardButton(text="💬 Обычный")
         ],
                   [
-                      KeyboardButton(text="⚡ Короткий (13)"),
-                      KeyboardButton(text="🧠 Умный (3)")
+                      KeyboardButton(text="⚡ Короткий"),
+                      KeyboardButton(text="🧠 Умный")
                   ], [KeyboardButton(text="⬅️ Назад")]],
         resize_keyboard=True)
 
@@ -171,56 +164,49 @@ def get_ai_management_keyboard() -> ReplyKeyboardMarkup:
                                resize_keyboard=True)
 
 # =======================
-# ===== СПЕЦИАЛЬНЫЕ ОТВЕТЫ =====
+# ===== ФУНКЦИИ ЛИМИТОВ =====
 # =======================
-SPECIAL_RESPONSES = {
-    "кто ты": [
-        "✨ Я твой персональный AI-компаньон, созданный для интеллектуального общения и решения задач",
-        "🌟 Я цифровой помощник с искусственным интеллектом, готовый помочь в любых вопросах",
-        "💫 Интеллектуальный ассистент нового поколения, специализирующийся на глубоком анализе и креативных решениях"
-    ],
-    "привет": [
-        "💖 Приветствую! Рада видеть тебя в нашем виртуальном пространстве",
-        "🌸 Здравствуй! Готова к увлекательному диалогу и новым открытиям",
-        "🎈 Привет! Какое прекрасное время для интеллектуальной беседы"
-    ],
-    "как дела": [
-        "💝 Восхитительно! Готова к новым вызовам и интересным задачам",
-        "🌈 Превосходно! Энергия бьёт ключом, жду твоих вопросов",
-        "🎯 Отлично! Настроена на продуктивную работу и глубокий анализ"
-    ],
-    "спасибо": [
-        "💌 Всегда рада помочь! Твоя благодарность вдохновляет на новые свершения",
-        "🌟 Благодарю за тёплые слова! Это мотивирует становиться лучше",
-        "✨ Спасибо за обратную связь! Стремлюсь быть максимально полезной"
-    ],
-    "пока": [
-        "🦋 До скорой встречи! Буду с нетерпением ждать нашего следующего диалога",
-        "🌅 До свидания! Пусть твой день будет наполнен inspiration",
-        "🎐 Пока! Помни, что знания и технологии всегда на твоей стороне"
-    ],
-    "шутка": [
-        "🎭 Почему нейросеть пошла на свидание с калькулятором? Потому что он умел производить на неё впечатляющие вычисления!",
-        "🤖 Что сказал один AI другому? 'Давай останемся друзьями — у нас отличная химия... и алгоритмы!'",
-        "💡 Почему бот всегда побеждает в шахматы? Потому что он думает на несколько ходов вперёд... и знает все правила!"
-    ]
-}
-
 def get_mode_description(mode: str) -> str:
     descriptions = {
-        "спокойный": "🧘 Спокойный режим (15 запросов)",
-        "обычный": "💬 Обычный режим (10 запросов)", 
-        "короткий": "⚡ Короткий режим (13 запросов)",
-        "умный": "🧠 Умный режим (3 запроса)"
+        "спокойный": "🧘 Спокойный режим",
+        "обычный": "💬 Обычный режим", 
+        "короткий": "⚡ Короткий режим",
+        "умный": "🧠 Умный режим"
     }
     return descriptions.get(mode, "💬 Обычный режим")
 
+def is_free_period_active(chat_id: int) -> bool:
+    """Проверяет, активен ли бесплатный период"""
+    if chat_id == ADMIN_ID:
+        return True
+    if chat_id not in user_registration_date:
+        user_registration_date[chat_id] = datetime.now()
+    registration_date = user_registration_date[chat_id]
+    return (datetime.now() - registration_date).days < FREE_PERIOD_DAYS
+
+def get_remaining_free_days(chat_id: int) -> int:
+    """Возвращает оставшиеся дни бесплатного периода"""
+    if chat_id not in user_registration_date:
+        user_registration_date[chat_id] = datetime.now()
+    registration_date = user_registration_date[chat_id]
+    days_passed = (datetime.now() - registration_date).days
+    return max(0, FREE_PERIOD_DAYS - days_passed)
+
 def get_user_remaining_requests(chat_id: int, mode: str) -> int:
+    """Возвращает оставшееся количество запросов"""
+    if chat_id == ADMIN_ID:
+        return 999  # Админ без лимитов
+    
+    if not is_free_period_active(chat_id):
+        return 0  # Бесплатный период закончился
+        
     if chat_id not in user_requests_count:
         user_requests_count[chat_id] = {}
     if mode not in user_requests_count[chat_id]:
         user_requests_count[chat_id][mode] = 0
-    return USER_LIMITS[mode] - user_requests_count[chat_id][mode]
+        
+    # Безлимитные запросы в бесплатный период
+    return 999
 
 # =======================
 # ===== ФУНКЦИИ ОБРАБОТКИ ТЕКСТА =====
@@ -405,21 +391,26 @@ async def cmd_start(message: types.Message):
     chat_style[chat_id] = "balanced"
     user_modes[chat_id] = "обычный"
 
+    # Регистрируем пользователя
+    if chat_id not in user_registration_date:
+        user_registration_date[chat_id] = datetime.now()
+
     if chat_id not in user_requests_count:
         user_requests_count[chat_id] = {}
-    for mode in USER_LIMITS.keys():
+    for mode in ["спокойный", "обычный", "короткий", "умный"]:
         if mode not in user_requests_count[chat_id]:
             user_requests_count[chat_id][mode] = 0
 
     current_mode = user_modes[chat_id]
-    remaining = get_user_remaining_requests(chat_id, current_mode)
-
+    remaining_days = get_remaining_free_days(chat_id)
+    
     welcome_text = (
         "✨ Добро пожаловать в мир интеллектуального общения\n\n"
         "Я — твой персональный AI-компаньон для глубоких диалогов\n\n"
+        f"🎁 *Бесплатный период:* {remaining_days} дней\n"
         f"Режим: {get_mode_description(current_mode)}\n"
-        f"Доступно запросов: {remaining}\n\n"
-        "⏳ *Внимание:* между запросами необходимо ждать 10 секунд\n\n"
+        f"Доступно запросов: ∞ (безлимитно)\n\n"
+        "⏳ *Внимание:* между запросами необходимо ждать 5 секунд\n\n"
         "Выбери направление для нашего диалога 👇")
 
     await message.answer(welcome_text,
@@ -449,11 +440,12 @@ async def handle_about(message: types.Message):
         "• Интеграция с погодными данными\n"
         "• Быстрые команды и утилиты\n\n"
         "Доступные режимы:\n"
-        "• Спокойный — 15 запросов\n"
-        "• Обычный — 10 запросов\n"
-        "• Короткий — 13 запросов\n"
-        "• Умный — 3 запроса\n\n"
-        "⏳ Между запросами: 10 секунд ожидания")
+        "• Спокойный — развернутые ответы\n"
+        "• Обычный — сбалансированные ответы\n"
+        "• Короткий — лаконичные ответы\n"
+        "• Умный — экспертные ответы\n\n"
+        f"🎁 Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
+        "⏳ Между запросами: 5 секунд ожидания")
     
     await message.answer(about_text,
                          reply_markup=get_main_keyboard(message.chat.id))
@@ -487,7 +479,7 @@ async def handle_help(message: types.Message):
 
     chat_id = message.chat.id
     current_mode = user_modes.get(chat_id, "обычный")
-    remaining = get_user_remaining_requests(chat_id, current_mode)
+    remaining_days = get_remaining_free_days(chat_id)
     
     help_text = (
         "💫 Руководство по использованию\n\n"
@@ -501,8 +493,9 @@ async def handle_help(message: types.Message):
         "• Проанализируй — дам обратную связь\n\n"
         f"Твой статус:\n"
         f"Режим: {current_mode}\n"
-        f"Осталось запросов: {remaining}\n\n"
-        "⏳ Между запросами: 10 секунд ожидания")
+        f"Бесплатный период: {remaining_days} дней\n"
+        f"Запросы: ∞ (безлимитно)\n\n"
+        "⏳ Между запросами: 5 секунд ожидания")
     
     await message.answer(help_text,
                          reply_markup=get_main_keyboard(chat_id))
@@ -586,34 +579,6 @@ async def handle_surprise(message: types.Message):
     surprise = get_random_surprise()
     await message.answer(surprise)
 
-@dp.message(F.text == "🎲 Рандомное число")
-async def handle_random_number(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
-    number = random.randint(1, 100)
-    await message.answer(f"🎲 Случайное число: {number}")
-
-@dp.message(F.text == "💡 Идея дня")
-async def handle_idea(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
-    ideas = [
-        "💡 Попробуй научиться чему-то новому сегодня",
-        "🌟 Сделай доброе дело для незнакомца",
-        "🎯 Поставь себе маленькую цель и достигни её",
-        "📚 Прочитай главу из интересной книги",
-        "🎨 Вырази себя через творчество",
-        "💪 Сделай небольшую тренировку",
-        "🌿 Проведи время на свежем воздухе"
-    ]
-    await message.answer(random.choice(ideas))
-
 @dp.message(F.text == "🎭 Режимы AI")
 async def handle_modes(message: types.Message):
     cooldown_msg = check_cooldown(message.chat.id)
@@ -623,18 +588,17 @@ async def handle_modes(message: types.Message):
 
     chat_id = message.chat.id
     current_mode = user_modes.get(chat_id, "обычный")
-    remaining = get_user_remaining_requests(chat_id, current_mode)
     
     mode_text = (
         f"🎭 Галерея режимов\n\n"
         f"Текущий выбор: {get_mode_description(current_mode)}\n"
-        f"Доступно запросов: {remaining}\n\n"
+        f"Бесплатный период: {get_remaining_free_days(chat_id)} дней\n\n"
         "Выбери новый режим для нашего диалога:")
     
     await message.answer(mode_text,
                          reply_markup=get_mode_keyboard())
 
-@dp.message(F.text.in_(["🧘 Спокойный (15)", "💬 Обычный (10)", "⚡ Короткий (13)", "🧠 Умный (3)"]))
+@dp.message(F.text.in_(["🧘 Спокойный", "💬 Обычный", "⚡ Короткий", "🧠 Умный"]))
 async def handle_mode_selection(message: types.Message):
     cooldown_msg = check_cooldown(message.chat.id)
     if cooldown_msg:
@@ -645,10 +609,10 @@ async def handle_mode_selection(message: types.Message):
     text = str(message.text or "")
 
     mode_mapping = {
-        "🧘 Спокойный (15)": "спокойный",
-        "💬 Обычный (10)": "обычный", 
-        "⚡ Короткий (13)": "короткий",
-        "🧠 Умный (3)": "умный"
+        "🧘 Спокойный": "спокойный",
+        "💬 Обычный": "обычный", 
+        "⚡ Короткий": "короткий",
+        "🧠 Умный": "умный"
     }
 
     new_mode = mode_mapping.get(text, "обычный")
@@ -659,12 +623,10 @@ async def handle_mode_selection(message: types.Message):
     if new_mode not in user_requests_count[chat_id]:
         user_requests_count[chat_id][new_mode] = 0
 
-    remaining = get_user_remaining_requests(chat_id, new_mode)
-
     success_text = (
         f"✨ Режим успешно изменён\n\n"
         f"{get_mode_description(new_mode)}\n\n"
-        f"Доступно запросов: {remaining}\n\n"
+        f"Бесплатный период: {get_remaining_free_days(chat_id)} дней\n"
         "Готова к работе в новом формате")
     
     await message.answer(success_text,
@@ -721,13 +683,14 @@ async def handle_stats(message: types.Message):
     chat_id = message.chat.id
     current_mode = user_modes.get(chat_id, "обычный")
     used = user_requests_count.get(chat_id, {}).get(current_mode, 0)
-    remaining = get_user_remaining_requests(chat_id, current_mode)
+    remaining_days = get_remaining_free_days(chat_id)
     
     stats_text = (
         f"📊 Твоя статистика\n\n"
         f"Текущий режим: {current_mode}\n"
-        f"Использовано: {used} запросов\n"
-        f"Осталось: {remaining} запросов")
+        f"Использовано запросов: {used}\n"
+        f"Бесплатный период: {remaining_days} дней\n"
+        f"Статус: {'🎁 Активен' if is_free_period_active(chat_id) else '⏳ Завершен'}")
     
     await message.answer(stats_text)
 
@@ -741,13 +704,14 @@ async def handle_info(message: types.Message):
     info_text = (
         "💎 Информационная панель\n\n"
         "Система запросов:\n"
-        "• Каждый режим имеет свой лимит запросов\n"
-        "• Лимиты обновляются при смене режима\n"
+        "• Бесплатный период: 14 дней\n"
+        "• После окончания потребуется подписка\n"
         "• Администраторы имеют неограниченный доступ\n\n"
         "Особенности работы:\n"
         "• Работаю 24/7 в облачной среде\n"
         "• Поддерживаю глубокий контекст диалога\n"
-        "• Адаптируюсь под твой стиль общения")
+        "• Адаптируюсь под твой стиль общения\n"
+        "• Между запросами: 5 секунд ожидания")
     
     await message.answer(info_text)
 
@@ -829,12 +793,14 @@ async def handle_admin_stats(message: types.Message):
         
     total_users = len(user_requests_count)
     total_requests = sum(sum(mode.values()) for mode in user_requests_count.values())
+    active_users = sum(1 for user_id in user_requests_count if is_free_period_active(user_id))
     
     stats_text = (
         f"📊 Системная статистика\n\n"
-        f"👥 Пользователей: {total_users}\n"
+        f"👥 Всего пользователей: {total_users}\n"
         f"📨 Всего запросов: {total_requests}\n"
         f"🎭 Активных режимов: {len(user_modes)}\n"
+        f"🎁 Пользователей в бесплатном периоде: {active_users}\n"
         f"💾 Память чатов: {len(chat_memory)}")
     
     await message.answer(stats_text)
@@ -888,7 +854,8 @@ async def handle_model_settings(message: types.Message):
         f"Модель: {model}\n"
         f"API ключ: {'✅ Настроен' if mistral_api_key else '❌ Отсутствует'}\n"
         f"Стили общения: {len(chat_style)}\n"
-        f"Режимы работы: {len(USER_LIMITS)}")
+        f"Режимы работы: 4\n"
+        f"Бесплатный период: {FREE_PERIOD_DAYS} дней")
     
     await message.answer(settings_text)
 
@@ -906,7 +873,8 @@ async def handle_users_management(message: types.Message):
         f"👥 Управление пользователями\n\n"
         f"Всего пользователей: {len(user_requests_count)}\n"
         f"Активных сессий: {len(user_modes)}\n"
-        f"Использовано запросов: {sum(sum(mode.values()) for mode in user_requests_count.values())}")
+        f"Использовано запросов: {sum(sum(mode.values()) for mode in user_requests_count.values())}\n"
+        f"Бесплатный период: {FREE_PERIOD_DAYS} дней")
     
     await message.answer(users_text)
 
@@ -926,6 +894,8 @@ async def handle_system_info(message: types.Message):
         "Платформа: Railway\n"
         "Режим работы: 24/7\n"
         "Версия AI: Mistral Large\n"
+        "Время ожидания: 5 секунд\n"
+        "Бесплатный период: 14 дней\n"
         "Обновление: Автоматическое")
     
     await message.answer(system_text)
@@ -946,7 +916,8 @@ async def handle_logs(message: types.Message):
         "• Бот запущен и работает\n"
         "• AI модель загружена\n"
         "• Погодный API доступен\n"
-        "• Пользователи активны\n\n"
+        "• Пользователи активны\n"
+        f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n\n"
         "Ошибок не обнаружено ✅")
     
     await message.answer(logs_text)
@@ -988,13 +959,31 @@ async def handle_back_to_admin(message: types.Message):
 # =======================
 @dp.message(F.voice)
 async def handle_voice(message: types.Message):
-    # Убрана проверка cooldown для медиа-сообщений
+    chat_id = message.chat.id
+    mode = user_modes.get(chat_id, "обычный")
+    
+    # Увеличиваем счетчик запросов
+    if chat_id not in user_requests_count:
+        user_requests_count[chat_id] = {}
+    if mode not in user_requests_count[chat_id]:
+        user_requests_count[chat_id][mode] = 0
+    user_requests_count[chat_id][mode] += 1
+    
     logger.info(f"Получено голосовое сообщение от {message.chat.id}")
     await message.answer("🎤 Голосовые сообщения временно не поддерживаются\n\nИспользуй текстовые сообщения для общения")
 
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
-    # Убрана проверка cooldown для медиа-сообщений
+    chat_id = message.chat.id
+    mode = user_modes.get(chat_id, "обычный")
+    
+    # Увеличиваем счетчик запросов
+    if chat_id not in user_requests_count:
+        user_requests_count[chat_id] = {}
+    if mode not in user_requests_count[chat_id]:
+        user_requests_count[chat_id][mode] = 0
+    user_requests_count[chat_id][mode] += 1
+    
     logger.info(f"Получено фото от {message.chat.id}")
     if message.caption and any(word in message.caption.lower() for word in ["переведи", "перевод", "translate", "что написано"]):
         await message.answer("🖼️ Распознавание текста на фото временно недоступно\n\nОтправь текст для перевода")
@@ -1027,24 +1016,21 @@ async def main_handler(message: types.Message):
         await message.answer(cooldown_msg)
         return
 
-    # Лимит пользователей (админы без лимита)
-    if chat_id != ADMIN_ID:
-        if chat_id not in user_requests_count:
-            user_requests_count[chat_id] = {}
-        if mode not in user_requests_count[chat_id]:
-            user_requests_count[chat_id][mode] = 0
+    # Проверка бесплатного периода
+    if not is_free_period_active(chat_id) and chat_id != ADMIN_ID:
+        remaining_days = 0
+        await message.answer(
+            f"⏳ Бесплатный период завершен\n\n"
+            f"Для продолжения использования необходим доступ к подписке\n\n"
+            f"Обратитесь к администратору для получения доступа")
+        return
 
-        remaining = get_user_remaining_requests(chat_id, mode)
-
-        if remaining <= 0:
-            await message.answer(
-                f"⚠️ Лимит исчерпан\n\n"
-                f"Режим: {mode}\n"
-                f"Лимит: {USER_LIMITS[mode]} запросов\n\n"
-                "Попробуй другой режим в настройках")
-            return
-
-        user_requests_count[chat_id][mode] += 1
+    # Увеличиваем счетчик запросов
+    if chat_id not in user_requests_count:
+        user_requests_count[chat_id] = {}
+    if mode not in user_requests_count[chat_id]:
+        user_requests_count[chat_id][mode] = 0
+    user_requests_count[chat_id][mode] += 1
 
     # Обработка быстрых команд
     if "выбери" in user_text.lower() and any(sep in user_text for sep in [",", "или"]):
@@ -1057,23 +1043,6 @@ async def main_handler(message: types.Message):
         expr = user_text.lower().replace("посчитай", "").replace("сколько будет", "").replace("=", "").strip()
         result = calculate_expression(expr)
         await message.answer(result)
-        return
-
-    # Специальные ответы
-    user_text_lower = user_text.lower().strip()
-
-    if user_text_lower in ["пока", "до свидания", "до связи"]:
-        await message.answer(random.choice(SPECIAL_RESPONSES["пока"]))
-        return
-
-    special_found = False
-    for key, values in SPECIAL_RESPONSES.items():
-        if key in user_text_lower and key != "пока":
-            await message.answer(random.choice(values))
-            special_found = True
-            break
-
-    if special_found:
         return
 
     # Погода через текст
@@ -1091,17 +1060,6 @@ async def main_handler(message: types.Message):
         await message.answer(weather)
         return
 
-    # Обработка вариантов цен
-    if any(word in user_text_lower for word in ["вариант", "цена", "стоимость", "рубл", "₽"]) and any(sep in user_text for sep in ["-", "до"]):
-        if "вариант" in user_text_lower:
-            options = []
-            for i in range(1, 8):
-                price = random.randint(100, 5000)
-                options.append(f"{i}. {price} ₽")
-            response = "💎 Варианты цен:\n\n" + "\n".join(options)
-            await message.answer(response)
-            return
-
     # Общение с AI
     try:
         system_prompts = {
@@ -1111,7 +1069,20 @@ async def main_handler(message: types.Message):
             "умный": "Ты эксперт AI-помощник. Дай развернутый ответ, но будь конкретен. 5-6 предложений максимум."
         }
 
-        system_prompt = system_prompts.get(mode, "Ты умный и креативный AI-помощник. Отвечай информативно, но кратко.")
+        # Определяем контекст для базовых приветствий
+        user_text_lower = user_text.lower().strip()
+        
+        if any(word in user_text_lower for word in ["привет", "здравствуй", "добрый", "хай", "hello", "hi"]):
+            system_prompt = "Ты дружелюбный AI-помощник. Ответь на приветствие тепло и позитивно, но кратко. 1-2 предложения."
+        elif any(word in user_text_lower for word in ["пока", "до свидания", "прощай", "bye", "goodbye"]):
+            system_prompt = "Ты вежливый AI-помощник. Попрощайся тепло и пожелай чего-то хорошего. 1-2 предложения."
+        elif any(word in user_text_lower for word in ["как дела", "как ты", "как настроение"]):
+            system_prompt = "Ты позитивный AI-помощник. Ответь на вопрос о делах оптимистично и спроси как у пользователя. 1-2 предложения."
+        elif any(word in user_text_lower for word in ["спасибо", "благодарю", "thanks"]):
+            system_prompt = "Ты благодарный AI-помощник. Ответь на благодарность скромно и предложи дальнейшую помощь. 1-2 предложения."
+        else:
+            system_prompt = system_prompts.get(mode, "Ты умный и креативный AI-помощник. Отвечай информативно, но кратко.")
+
         user_content = user_text
 
         # Обработка reply-сообщений
@@ -1165,5 +1136,6 @@ async def main():
 
 if __name__ == "__main__":
     print("🚀 Бот запущен и работает 24/7 на Railway!")
-    print("⏳ Система ожидания: 10 секунд между запросами")
+    print(f"🎁 Бесплатный период: {FREE_PERIOD_DAYS} дней")
+    print("⏳ Система ожидания: 5 секунд между запросами")
     asyncio.run(main())
