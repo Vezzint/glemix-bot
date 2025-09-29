@@ -988,20 +988,14 @@ async def handle_back_to_admin(message: types.Message):
 # =======================
 @dp.message(F.voice)
 async def handle_voice(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
+    # Убрана проверка cooldown для медиа-сообщений
+    logger.info(f"Получено голосовое сообщение от {message.chat.id}")
     await message.answer("🎤 Голосовые сообщения временно не поддерживаются\n\nИспользуй текстовые сообщения для общения")
 
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
-    cooldown_msg = check_cooldown(message.chat.id)
-    if cooldown_msg:
-        await message.answer(cooldown_msg)
-        return
-
+    # Убрана проверка cooldown для медиа-сообщений
+    logger.info(f"Получено фото от {message.chat.id}")
     if message.caption and any(word in message.caption.lower() for word in ["переведи", "перевод", "translate", "что написано"]):
         await message.answer("🖼️ Распознавание текста на фото временно недоступно\n\nОтправь текст для перевода")
     else:
@@ -1012,6 +1006,10 @@ async def handle_photo(message: types.Message):
 # =======================
 @dp.message()
 async def main_handler(message: types.Message):
+    # Пропускаем голосовые и фото сообщения - они уже обработаны выше
+    if message.voice or message.photo:
+        return
+        
     chat_id = message.chat.id
     user_text = (message.text or "").strip()
     style = chat_style.get(chat_id, "balanced")
@@ -1122,7 +1120,7 @@ async def main_handler(message: types.Message):
 
             if any(w in user_text_lower for w in [
                     "доработать", "улучшить", "усовершенствовать", "покруче",
-                    "посоветуй", "варианты", "версии"
+                    "поправь", "исправь", "перепиши", "перефразируй"
             ]):
                 system_prompt = "Ты эксперт по улучшению текстов. Предложи 2-3 конкретных варианта доработки текста. Будь кратким."
                 user_content = f"Предложи варианты улучшения этого текста: {replied_text}"
