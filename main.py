@@ -11,6 +11,8 @@ from aiogram.exceptions import TelegramBadRequest
 from typing import Dict, Any, List
 import os
 from mistralai import Mistral
+import json
+import pickle
 
 # =======================
 # ===== КОНФИГУРАЦИЯ =====
@@ -23,24 +25,70 @@ ADMIN_ID = 6584350034
 
 # Бесплатный период (2 недели)
 FREE_PERIOD_DAYS = 14
-user_registration_date: Dict[int, datetime] = {}
 
 # Время ожидания между запросами (секунды)
 REQUEST_COOLDOWN = 5
 
 # Память диалогов
-conversation_memory: Dict[int, List[Dict[str, str]]] = {}
 MAX_CONVERSATION_HISTORY = 10
 
 model = "mistral-large-latest"
 client = Mistral(api_key=mistral_api_key)
 
-chat_style: Dict[int, str] = {}
-chat_memory: Dict[int, Dict[str, Any]] = {}
-user_requests_count: Dict[int, Dict[str, int]] = {}
-user_last_messages: Dict[int, str] = {}
-user_modes: Dict[int, str] = {}
+# Файлы для сохранения данных
+DATA_FILES = {
+    'user_registration_date': 'user_registration_date.pkl',
+    'conversation_memory': 'conversation_memory.pkl',
+    'chat_style': 'chat_style.pkl',
+    'user_requests_count': 'user_requests_count.pkl',
+    'user_modes': 'user_modes.pkl'
+}
+
+# =======================
+# ===== СОХРАНЕНИЕ ДАННЫХ =====
+# =======================
+def load_data(filename: str, default: Any = None) -> Any:
+    """Загружает данные из файла"""
+    try:
+        if os.path.exists(filename):
+            with open(filename, 'rb') as f:
+                return pickle.load(f)
+    except Exception as e:
+        logging.error(f"Ошибка загрузки {filename}: {e}")
+    return default if default is not None else {}
+
+def save_data(data: Any, filename: str):
+    """Сохраняет данные в файл"""
+    try:
+        with open(filename, 'wb') as f:
+            pickle.dump(data, f)
+    except Exception as e:
+        logging.error(f"Ошибка сохранения {filename}: {e}")
+
+def save_all_data():
+    """Сохраняет все данные"""
+    save_data(user_registration_date, DATA_FILES['user_registration_date'])
+    save_data(conversation_memory, DATA_FILES['conversation_memory'])
+    save_data(chat_style, DATA_FILES['chat_style'])
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
+    save_data(user_modes, DATA_FILES['user_modes'])
+
+def load_all_data():
+    """Загружает все данные"""
+    global user_registration_date, conversation_memory, chat_style, user_requests_count, user_modes
+    
+    user_registration_date = load_data(DATA_FILES['user_registration_date'], {})
+    conversation_memory = load_data(DATA_FILES['conversation_memory'], {})
+    chat_style = load_data(DATA_FILES['chat_style'], {})
+    user_requests_count = load_data(DATA_FILES['user_requests_count'], {})
+    user_modes = load_data(DATA_FILES['user_modes'], {})
+
+# Загружаем данные при старте
+load_all_data()
+
+# Переменные для временных данных (не сохраняются)
 user_last_request: Dict[int, float] = {}
+user_last_messages: Dict[int, str] = {}
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -228,6 +276,9 @@ def add_to_conversation_memory(chat_id: int, role: str, content: str):
     # Ограничиваем историю
     if len(conversation_memory[chat_id]) > MAX_CONVERSATION_HISTORY:
         conversation_memory[chat_id] = conversation_memory[chat_id][-MAX_CONVERSATION_HISTORY:]
+    
+    # Сохраняем изменения
+    save_data(conversation_memory, DATA_FILES['conversation_memory'])
 
 def get_conversation_context(chat_id: int) -> List[Dict[str, str]]:
     """Возвращает контекст диалога"""
@@ -237,6 +288,7 @@ def clear_conversation_memory(chat_id: int):
     """Очищает память диалога"""
     if chat_id in conversation_memory:
         conversation_memory[chat_id] = []
+        save_data(conversation_memory, DATA_FILES['conversation_memory'])
 
 def get_memory_stats() -> Dict[str, Any]:
     """Статистика памяти"""
@@ -269,6 +321,7 @@ def is_free_period_active(chat_id: int) -> bool:
         return True
     if chat_id not in user_registration_date:
         user_registration_date[chat_id] = datetime.now()
+        save_data(user_registration_date, DATA_FILES['user_registration_date'])
     registration_date = user_registration_date[chat_id]
     return (datetime.now() - registration_date).days < FREE_PERIOD_DAYS
 
@@ -276,6 +329,7 @@ def get_remaining_free_days(chat_id: int) -> int:
     """Возвращает оставшиеся дней бесплатного периода"""
     if chat_id not in user_registration_date:
         user_registration_date[chat_id] = datetime.now()
+        save_data(user_registration_date, DATA_FILES['user_registration_date'])
     registration_date = user_registration_date[chat_id]
     days_passed = (datetime.now() - registration_date).days
     return max(0, FREE_PERIOD_DAYS - days_passed)
@@ -472,22 +526,31 @@ async def cmd_start(message: types.Message):
         return
 
     chat_id = message.chat.id
-    chat_style[chat_id] = "balanced"
-    user_modes[chat_id] = "обычный"
+    
+    # Инициализация данных пользователя
+    if chat_id not in chat_style:
+        chat_style[chat_id] = "balanced"
+        save_data(chat_style, DATA_FILES['chat_style'])
+    
+    if chat_id not in user_modes:
+        user_modes[chat_id] = "обычный"
+        save_data(user_modes, DATA_FILES['user_modes'])
 
     # Регистрируем пользователя
     if chat_id not in user_registration_date:
         user_registration_date[chat_id] = datetime.now()
+        save_data(user_registration_date, DATA_FILES['user_registration_date'])
 
     if chat_id not in user_requests_count:
         user_requests_count[chat_id] = {}
-    for mode in ["спокойный", "обычный", "короткий", "умный"]:
-        if mode not in user_requests_count[chat_id]:
+        for mode in ["спокойный", "обычный", "короткий", "умный"]:
             user_requests_count[chat_id][mode] = 0
+        save_data(user_requests_count, DATA_FILES['user_requests_count'])
 
     # Инициализируем память
     if chat_id not in conversation_memory:
         conversation_memory[chat_id] = []
+        save_data(conversation_memory, DATA_FILES['conversation_memory'])
 
     current_mode = user_modes[chat_id]
     remaining_days = get_remaining_free_days(chat_id)
@@ -495,11 +558,10 @@ async def cmd_start(message: types.Message):
     welcome_text = (
         "✨ Добро пожаловать в мир интеллектуального общения\n\n"
         "Я — твой персональный AI-компаньон для глубоких диалогов\n\n"
-        f"🎁 *Бесплатный период:* {remaining_days} дней\n"
+        f"🎁 *Период использования:* {remaining_days} дней\n"
         f"Режим: {get_mode_description(current_mode)}\n"
-        f"Доступно запросов: ∞ (безлимитно)\n"
+        f"Доступно запросов: ∞\n"
         f"💾 Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n\n"
-        "⏳ *Внимание:* между запросами необходимо ждать 5 секунд\n\n"
         "Выбери направление для нашего диалога 👇")
 
     await message.answer(welcome_text,
@@ -534,9 +596,7 @@ async def handle_about(message: types.Message):
         "• Спокойный — развернутые ответы\n"
         "• Обычный — сбалансированные ответы\n"
         "• Короткий — лаконичные ответы\n"
-        "• Умный — экспертные ответы\n\n"
-        f"🎁 Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
-        "⏳ Между запросами: 5 секунд ожидания")
+        "• Умный — экспертные ответы")
     
     await message.answer(about_text,
                          reply_markup=get_main_keyboard(message.chat.id))
@@ -586,10 +646,9 @@ async def handle_help(message: types.Message):
         "• 'Объясни' — дам подробное объяснение\n\n"
         f"Твой статус:\n"
         f"Режим: {current_mode}\n"
-        f"Бесплатный период: {remaining_days} дней\n"
-        f"Запросы: ∞ (безлимитно)\n"
-        f"💾 Память: {MAX_CONVERSATION_HISTORY} сообщений\n\n"
-        "⏳ Между запросами: 5 секунд ожидания")
+        f"Период использования: {remaining_days} дней\n"
+        f"Запросы: ∞\n"
+        f"💾 Память: {MAX_CONVERSATION_HISTORY} сообщений")
     
     await message.answer(help_text,
                          reply_markup=get_main_keyboard(chat_id))
@@ -685,7 +744,7 @@ async def handle_modes(message: types.Message):
     mode_text = (
         f"🎭 Галерея режимов\n\n"
         f"Текущий выбор: {get_mode_description(current_mode)}\n"
-        f"Бесплатный период: {get_remaining_free_days(chat_id)} дней\n\n"
+        f"Период использования: {get_remaining_free_days(chat_id)} дней\n\n"
         "Выбери новый режим для нашего диалога:")
     
     await message.answer(mode_text,
@@ -710,16 +769,18 @@ async def handle_mode_selection(message: types.Message):
 
     new_mode = mode_mapping.get(text, "обычный")
     user_modes[chat_id] = new_mode
+    save_data(user_modes, DATA_FILES['user_modes'])
 
     if chat_id not in user_requests_count:
         user_requests_count[chat_id] = {}
     if new_mode not in user_requests_count[chat_id]:
         user_requests_count[chat_id][new_mode] = 0
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
 
     success_text = (
         f"✨ Режим успешно изменён\n\n"
         f"{get_mode_description(new_mode)}\n\n"
-        f"Бесплатный период: {get_remaining_free_days(chat_id)} дней\n"
+        f"Период использования: {get_remaining_free_days(chat_id)} дней\n"
         "Готова к работе в новом формате")
     
     await message.answer(success_text,
@@ -758,6 +819,7 @@ async def handle_style_selection(message: types.Message):
 
     new_style = style_mapping.get(text, "balanced")
     chat_style[chat_id] = new_style
+    save_data(chat_style, DATA_FILES['chat_style'])
 
     success_text = (
         f"🎨 Стиль общения обновлён\n\n"
@@ -784,8 +846,8 @@ async def handle_stats(message: types.Message):
         f"Текущий режим: {current_mode}\n"
         f"Использовано запросов: {used}\n"
         f"💾 Сообщений в памяти: {memory_count}/{MAX_CONVERSATION_HISTORY}\n"
-        f"Бесплатный период: {remaining_days} дней\n"
-        f"Статус: {'🎁 Активен' if is_free_period_active(chat_id) else '⏳ Завершен'}")
+        f"Период использования: {remaining_days} дней\n"
+        f"Статус: {'✅ Активен' if is_free_period_active(chat_id) else '⏳ Завершен'}")
     
     await message.answer(stats_text)
 
@@ -799,16 +861,14 @@ async def handle_info(message: types.Message):
     info_text = (
         "💎 Информационная панель\n\n"
         "Система запросов:\n"
-        f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
-        "• После окончания потребуется подписка\n"
+        f"• Период использования: {FREE_PERIOD_DAYS} дней\n"
         "• Все режимы работают одинаково\n\n"
         "Особенности работы:\n"
         "• Работаю 24/7 в облачной среде\n"
         "• Поддерживаю глубокий контекст диалога\n"
         f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
         "• Понимаю современный сленг и мемы\n"
-        "• Адаптируюсь под твой стиль общения\n"
-        "• Между запросами: 5 секунд ожидания")
+        "• Адаптируюсь под твой стиль общения")
     
     await message.answer(info_text)
 
@@ -909,7 +969,7 @@ async def handle_admin_stats(message: types.Message):
         stats_text += f"• {get_mode_description(mode)}: {count} запросов\n"
     
     stats_text += f"\n⚙️ Настройки:\n"
-    stats_text += f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
+    stats_text += f"• Период использования: {FREE_PERIOD_DAYS} дней\n"
     stats_text += f"• Время ожидания: {REQUEST_COOLDOWN} секунд\n"
     stats_text += f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
     stats_text += f"• Модель AI: {model}"
@@ -969,6 +1029,7 @@ async def handle_reset_limits(message: types.Message):
         return
         
     user_requests_count.clear()
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
     await message.answer("✅ Лимиты всех пользователей сброшены")
 
 @dp.message(F.text == "⚙️ Настройки системы")
@@ -980,7 +1041,7 @@ async def handle_system_settings(message: types.Message):
         "⚙️ Настройки системы\n\n"
         f"Текущие параметры:\n"
         f"• Модель AI: {model}\n"
-        f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
+        f"• Период использования: {FREE_PERIOD_DAYS} дней\n"
         f"• Время ожидания: {REQUEST_COOLDOWN} секунд\n"
         f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
         f"• API ключ: {'✅ Настроен' if mistral_api_key else '❌ Отсутствует'}\n"
@@ -1030,7 +1091,7 @@ async def handle_logs(message: types.Message):
         "• Погодный API доступен\n"
         f"• Пользователей: {len(user_requests_count)}\n"
         f"• Память: {memory_stats['total_messages']} сообщений\n"
-        f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n\n"
+        f"• Период использования: {FREE_PERIOD_DAYS} дней\n\n"
         "Ошибок не обнаружено ✅")
     
     await message.answer(logs_text)
@@ -1057,6 +1118,7 @@ async def handle_clear_memory(message: types.Message):
         return
         
     conversation_memory.clear()
+    save_data(conversation_memory, DATA_FILES['conversation_memory'])
     await message.answer("✅ Память всех пользователей очищена")
 
 @dp.message(F.text == "📊 Статистика памяти")
@@ -1124,6 +1186,7 @@ async def handle_extend_command(message: types.Message):
             
             if user_id in user_registration_date:
                 user_registration_date[user_id] = datetime.now() - timedelta(days=FREE_PERIOD_DAYS-days)
+                save_data(user_registration_date, DATA_FILES['user_registration_date'])
                 await message.answer(f"✅ Подписка пользователя {user_id} продлена на {days} дней")
             else:
                 await message.answer(f"❌ Пользователь {user_id} не найден")
@@ -1223,6 +1286,7 @@ async def handle_voice(message: types.Message):
     if mode not in user_requests_count[chat_id]:
         user_requests_count[chat_id][mode] = 0
     user_requests_count[chat_id][mode] += 1
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
     
     logger.info(f"Получено голосовое сообщение от {message.chat.id}")
     await message.answer("🎤 Голосовые сообщения временно не поддерживаются\n\nИспользуй текстовые сообщения для общения")
@@ -1238,6 +1302,7 @@ async def handle_photo(message: types.Message):
     if mode not in user_requests_count[chat_id]:
         user_requests_count[chat_id][mode] = 0
     user_requests_count[chat_id][mode] += 1
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
     
     logger.info(f"Получено фото от {message.chat.id}")
     if message.caption and any(word in message.caption.lower() for word in ["переведи", "перевод", "translate", "что написано"]):
@@ -1274,8 +1339,8 @@ async def main_handler(message: types.Message):
     # Проверка бесплатного периода
     if not is_free_period_active(chat_id) and chat_id != ADMIN_ID:
         await message.answer(
-            f"⏳ Бесплатный период завершен\n\n"
-            f"Для продолжения использования необходим доступ к подписке\n\n"
+            f"⏳ Период использования завершен\n\n"
+            f"Для продолжения использования необходим доступ\n\n"
             f"Обратитесь к администратору для получения доступа")
         return
 
@@ -1285,6 +1350,7 @@ async def main_handler(message: types.Message):
     if mode not in user_requests_count[chat_id]:
         user_requests_count[chat_id][mode] = 0
     user_requests_count[chat_id][mode] += 1
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
 
     # Обработка быстрых команд
     user_text_lower = user_text.lower().strip()
@@ -1403,9 +1469,9 @@ async def main():
 
 if __name__ == "__main__":
     print("🚀 Бот запущен и работает 24/7!")
-    print(f"🎁 Бесплатный период: {FREE_PERIOD_DAYS} дней")
-    print("⏳ Система ожидания: 5 секунд между запросами")
+    print(f"🎁 Период использования: {FREE_PERIOD_DAYS} дней")
     print(f"💾 Память диалога: {MAX_CONVERSATION_HISTORY} сообщений")
     print("🔤 Понимание современного сленга: активировано")
     print("👑 Админ-панель: доступна для ADMIN_ID")
+    print("💾 Система сохранения данных: активирована")
     asyncio.run(main())
