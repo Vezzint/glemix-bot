@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.exceptions import TelegramBadRequest
-from typing import Dict, Any
+from typing import Dict, Any, List
 import os
 from mistralai import Mistral
 
@@ -27,6 +27,10 @@ user_registration_date: Dict[int, datetime] = {}
 
 # Время ожидания между запросами (секунды)
 REQUEST_COOLDOWN = 5
+
+# Память диалогов
+conversation_memory: Dict[int, List[Dict[str, str]]] = {}
+MAX_CONVERSATION_HISTORY = 10
 
 model = "mistral-large-latest"
 client = Mistral(api_key=mistral_api_key)
@@ -56,6 +60,47 @@ emojis = {
 
 def get_emoji(style: str = "balanced") -> str:
     return random.choice(emojis.get(style, emojis["balanced"]))
+
+# =======================
+# ===== СОВРЕМЕННЫЙ СЛЕНГ =====
+# =======================
+MODERN_SLANG = {
+    "имба": "отлично, великолепно, превосходно",
+    "краш": "симпатия, влюблённость, объект воздыханий", 
+    "чиллерить": "расслабляться, отдыхать",
+    "хайпить": "быть на волне, быть популярным",
+    "рофлить": "шутить, смеяться",
+    "кринж": "стыд, неловкость",
+    "агриться": "злиться, раздражаться",
+    "вайб": "атмосфера, настроение",
+    "сасный": "привлекательный, симпатичный",
+    "пруфы": "доказательства",
+    "facepalm": "жест разочарования",
+    "чикса": "девушка",
+    "чилать": "отдыхать, расслабляться",
+    "ломка": "сильное желание",
+    "хейтер": "недоброжелатель",
+    "лайк": "нравится",
+    "димпси": "глубокие, душевные мысли",
+    "ку": "привет",
+    "чиназес": "китайцы",
+    "го": "давай, поехали",
+    "ноу проблемс": "без проблем",
+    окей: "хорошо, согласен",
+    "ок": "хорошо",
+    "агу": "понимаю",
+    "респект": "уважение",
+    "жиза": "жизненная ситуация",
+    "пож": "пожалуйста",
+    "спс": "спасибо",
+    "плиз": "пожалуйста",
+    "омг": "ой боже",
+    "бро": "друг, брат",
+    "сижка": "сигарета",
+    "буст": "ускорение, улучшение",
+    "флекс": "хвастовство",
+    " ghosting": "исчезновение без объяснений"
+}
 
 # =======================
 # ===== КЛАВИАТУРЫ =====
@@ -144,6 +189,9 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
     ], [
         KeyboardButton(text="🎯 Тест AI"),
         KeyboardButton(text="📊 Логи")
+    ], [
+        KeyboardButton(text="🧠 Управление памятью"),
+        KeyboardButton(text="🔧 Расширенные настройки")
     ], [KeyboardButton(text="⬅️ Главное меню")]],
                                resize_keyboard=True)
 
@@ -156,6 +204,52 @@ def get_users_management_keyboard() -> ReplyKeyboardMarkup:
         KeyboardButton(text="📝 Массовая рассылка")
     ], [KeyboardButton(text="⬅️ Админ-панель")]],
                                resize_keyboard=True)
+
+def get_memory_management_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(keyboard=[[
+        KeyboardButton(text="🧹 Очистить память"),
+        KeyboardButton(text="📊 Статистика памяти")
+    ], [
+        KeyboardButton(text="🔍 Просмотр памяти"),
+        KeyboardButton(text="⚡ Оптимизация")
+    ], [KeyboardButton(text="⬅️ Админ-панель")]],
+                               resize_keyboard=True)
+
+# =======================
+# ===== ФУНКЦИИ ПАМЯТИ =====
+# =======================
+def add_to_conversation_memory(chat_id: int, role: str, content: str):
+    """Добавляет сообщение в память диалога"""
+    if chat_id not in conversation_memory:
+        conversation_memory[chat_id] = []
+    
+    conversation_memory[chat_id].append({"role": role, "content": content})
+    
+    # Ограничиваем историю
+    if len(conversation_memory[chat_id]) > MAX_CONVERSATION_HISTORY:
+        conversation_memory[chat_id] = conversation_memory[chat_id][-MAX_CONVERSATION_HISTORY:]
+
+def get_conversation_context(chat_id: int) -> List[Dict[str, str]]:
+    """Возвращает контекст диалога"""
+    return conversation_memory.get(chat_id, [])
+
+def clear_conversation_memory(chat_id: int):
+    """Очищает память диалога"""
+    if chat_id in conversation_memory:
+        conversation_memory[chat_id] = []
+
+def get_memory_stats() -> Dict[str, Any]:
+    """Статистика памяти"""
+    total_users = len(conversation_memory)
+    total_messages = sum(len(messages) for messages in conversation_memory.values())
+    avg_messages = total_messages / total_users if total_users > 0 else 0
+    
+    return {
+        "total_users": total_users,
+        "total_messages": total_messages,
+        "avg_messages": round(avg_messages, 2),
+        "memory_size": total_messages * 100  # примерный размер в байтах
+    }
 
 # =======================
 # ===== ФУНКЦИИ ЛИМИТОВ =====
@@ -391,6 +485,10 @@ async def cmd_start(message: types.Message):
         if mode not in user_requests_count[chat_id]:
             user_requests_count[chat_id][mode] = 0
 
+    # Инициализируем память
+    if chat_id not in conversation_memory:
+        conversation_memory[chat_id] = []
+
     current_mode = user_modes[chat_id]
     remaining_days = get_remaining_free_days(chat_id)
     
@@ -399,7 +497,8 @@ async def cmd_start(message: types.Message):
         "Я — твой персональный AI-компаньон для глубоких диалогов\n\n"
         f"🎁 *Бесплатный период:* {remaining_days} дней\n"
         f"Режим: {get_mode_description(current_mode)}\n"
-        f"Доступно запросов:\n\n"
+        f"Доступно запросов: ∞ (безлимитно)\n"
+        f"💾 Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n\n"
         "⏳ *Внимание:* между запросами необходимо ждать 5 секунд\n\n"
         "Выбери направление для нашего диалога 👇")
 
@@ -428,7 +527,9 @@ async def handle_about(message: types.Message):
         "• Креативная генерация контента\n"
         "• Многорежимная работа\n"
         "• Интеграция с погодными данными\n"
-        "• Быстрые команды и утилиты\n\n"
+        "• Быстрые команды и утилиты\n"
+        f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
+        "• Понимание современного сленга\n\n"
         "Доступные режимы:\n"
         "• Спокойный — развернутые ответы\n"
         "• Обычный — сбалансированные ответы\n"
@@ -476,11 +577,18 @@ async def handle_help(message: types.Message):
         "Основные команды:\n"
         "• Просто напиши вопрос — получу развернутый ответ\n"
         "• Используй кнопки для быстрой навигации\n"
-        "• Ответь на сообщение для работы с текстами\n\n"
+        "• Ответь на сообщение для работы с текстами\n"
+        "• Я помню контекст наших последних сообщений\n\n"
+        "Работа с контентом:\n"
+        "• 'Сократи' — сделаю текст короче\n"
+        "• 'Дополни' — добавлю информацию\n"
+        "• 'Перефразируй' — изменю формулировки\n"
+        "• 'Объясни' — дам подробное объяснение\n\n"
         f"Твой статус:\n"
         f"Режим: {current_mode}\n"
         f"Бесплатный период: {remaining_days} дней\n"
-        f"Запросы: ∞ (безлимитно)\n\n"
+        f"Запросы: ∞ (безлимитно)\n"
+        f"💾 Память: {MAX_CONVERSATION_HISTORY} сообщений\n\n"
         "⏳ Между запросами: 5 секунд ожидания")
     
     await message.answer(help_text,
@@ -669,11 +777,13 @@ async def handle_stats(message: types.Message):
     current_mode = user_modes.get(chat_id, "обычный")
     used = user_requests_count.get(chat_id, {}).get(current_mode, 0)
     remaining_days = get_remaining_free_days(chat_id)
+    memory_count = len(conversation_memory.get(chat_id, []))
     
     stats_text = (
         f"📊 Твоя статистика\n\n"
         f"Текущий режим: {current_mode}\n"
         f"Использовано запросов: {used}\n"
+        f"💾 Сообщений в памяти: {memory_count}/{MAX_CONVERSATION_HISTORY}\n"
         f"Бесплатный период: {remaining_days} дней\n"
         f"Статус: {'🎁 Активен' if is_free_period_active(chat_id) else '⏳ Завершен'}")
     
@@ -695,6 +805,8 @@ async def handle_info(message: types.Message):
         "Особенности работы:\n"
         "• Работаю 24/7 в облачной среде\n"
         "• Поддерживаю глубокий контекст диалога\n"
+        f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
+        "• Понимаю современный сленг и мемы\n"
         "• Адаптируюсь под твой стиль общения\n"
         "• Между запросами: 5 секунд ожидания")
     
@@ -759,7 +871,8 @@ async def handle_admin_panel(message: types.Message):
         "• Сброс лимитов — обнуление счетчиков\n"
         "• Настройки системы — конфигурация бота\n"
         "• Тест AI — проверка работы нейросети\n"
-        "• Логи — просмотр журналов")
+        "• Логи — просмотр журналов\n"
+        "• Управление памятью — работа с памятью диалогов")
     
     await message.answer(admin_text,
                          reply_markup=get_admin_keyboard())
@@ -780,12 +893,16 @@ async def handle_admin_stats(message: types.Message):
         for mode, count in user_data.items():
             mode_stats[mode] = mode_stats.get(mode, 0) + count
     
+    # Статистика памяти
+    memory_stats = get_memory_stats()
+    
     stats_text = (
         f"📊 Общая статистика системы\n\n"
         f"👥 Всего пользователей: {total_users}\n"
         f"✅ Активных: {active_users}\n"
         f"❌ Истекших: {expired_users}\n"
-        f"📨 Всего запросов: {total_requests}\n\n"
+        f"📨 Всего запросов: {total_requests}\n"
+        f"💾 Память: {memory_stats['total_messages']} сообщений\n\n"
         f"📈 Статистика по режимам:\n")
     
     for mode, count in mode_stats.items():
@@ -794,6 +911,7 @@ async def handle_admin_stats(message: types.Message):
     stats_text += f"\n⚙️ Настройки:\n"
     stats_text += f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
     stats_text += f"• Время ожидания: {REQUEST_COOLDOWN} секунд\n"
+    stats_text += f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
     stats_text += f"• Модель AI: {model}"
     
     await message.answer(stats_text)
@@ -829,15 +947,17 @@ async def handle_users_stats(message: types.Message):
         total_requests = sum(modes.values())
         remaining_days = get_remaining_free_days(user_id)
         status = "✅ Активен" if is_free_period_active(user_id) else "❌ Истек"
-        top_users.append((user_id, total_requests, remaining_days, status))
+        memory_count = len(conversation_memory.get(user_id, []))
+        top_users.append((user_id, total_requests, remaining_days, status, memory_count))
     
     # Сортируем по количеству запросов
     top_users.sort(key=lambda x: x[1], reverse=True)
     
     stats_text = "📊 Топ пользователей по активности:\n\n"
-    for i, (user_id, requests, days, status) in enumerate(top_users[:10], 1):
+    for i, (user_id, requests, days, status, memory) in enumerate(top_users[:10], 1):
         stats_text += f"{i}. ID: {user_id}\n"
         stats_text += f"   Запросы: {requests}\n"
+        stats_text += f"   Память: {memory} сообщений\n"
         stats_text += f"   Осталось дней: {days}\n"
         stats_text += f"   Статус: {status}\n\n"
     
@@ -862,8 +982,10 @@ async def handle_system_settings(message: types.Message):
         f"• Модель AI: {model}\n"
         f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n"
         f"• Время ожидания: {REQUEST_COOLDOWN} секунд\n"
+        f"• Память диалога: {MAX_CONVERSATION_HISTORY} сообщений\n"
         f"• API ключ: {'✅ Настроен' if mistral_api_key else '❌ Отсутствует'}\n"
-        f"• Пользователей: {len(user_requests_count)}\n\n"
+        f"• Пользователей: {len(user_requests_count)}\n"
+        f"• Сленг слов: {len(MODERN_SLANG)} выражений\n\n"
         "Для изменения настроек требуется редактирование кода")
     
     await message.answer(settings_text)
@@ -898,6 +1020,8 @@ async def handle_logs(message: types.Message):
     if message.chat.id != ADMIN_ID:
         return
         
+    memory_stats = get_memory_stats()
+    
     logs_text = (
         "📊 Журнал системы\n\n"
         "Последние события:\n"
@@ -905,10 +1029,76 @@ async def handle_logs(message: types.Message):
         "• AI модель загружена\n"
         "• Погодный API доступен\n"
         f"• Пользователей: {len(user_requests_count)}\n"
+        f"• Память: {memory_stats['total_messages']} сообщений\n"
         f"• Бесплатный период: {FREE_PERIOD_DAYS} дней\n\n"
         "Ошибок не обнаружено ✅")
     
     await message.answer(logs_text)
+
+@dp.message(F.text == "🧠 Управление памятью")
+async def handle_memory_management(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    memory_text = (
+        "🧠 Управление памятью диалогов\n\n"
+        "Доступные функции:\n"
+        "• Очистить память — удалить все данные\n"
+        "• Статистика памяти — аналитика использования\n"
+        "• Просмотр памяти — посмотреть данные пользователей\n"
+        "• Оптимизация — очистка неактивных данных")
+    
+    await message.answer(memory_text,
+                         reply_markup=get_memory_management_keyboard())
+
+@dp.message(F.text == "🧹 Очистить память")
+async def handle_clear_memory(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    conversation_memory.clear()
+    await message.answer("✅ Память всех пользователей очищена")
+
+@dp.message(F.text == "📊 Статистика памяти")
+async def handle_memory_stats(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    stats = get_memory_stats()
+    
+    stats_text = (
+        f"📊 Статистика памяти\n\n"
+        f"👥 Пользователей с памятью: {stats['total_users']}\n"
+        f"💾 Всего сообщений: {stats['total_messages']}\n"
+        f"📊 Среднее на пользователя: {stats['avg_messages']}\n"
+        f"⚡ Примерный размер: {stats['memory_size']} байт\n"
+        f"🔢 Максимум сообщений: {MAX_CONVERSATION_HISTORY}\n\n"
+        f"💡 Память хранит последние {MAX_CONVERSATION_HISTORY} сообщений для контекста диалога")
+    
+    await message.answer(stats_text)
+
+@dp.message(F.text == "🔍 Просмотр памяти")
+async def handle_view_memory(message: types.Message):
+    if message.chat.id != ADMIN_ID:
+        return
+        
+    if not conversation_memory:
+        await message.answer("🔍 Нет данных в памяти")
+        return
+    
+    # Показываем топ 5 пользователей по объему памяти
+    top_memory = []
+    for user_id, messages in conversation_memory.items():
+        top_memory.append((user_id, len(messages)))
+    
+    top_memory.sort(key=lambda x: x[1], reverse=True)
+    
+    memory_text = "🔍 Топ пользователей по объему памяти:\n\n"
+    for i, (user_id, count) in enumerate(top_memory[:5], 1):
+        memory_text += f"{i}. ID: {user_id}\n"
+        memory_text += f"   Сообщений: {count}/{MAX_CONVERSATION_HISTORY}\n\n"
+    
+    await message.answer(memory_text)
 
 @dp.message(F.text == "⏰ Продлить подписки")
 async def handle_extend_subscriptions(message: types.Message):
@@ -969,13 +1159,15 @@ async def handle_find_command(message: types.Message):
                 remaining_days = get_remaining_free_days(user_id)
                 status = "✅ Активен" if is_free_period_active(user_id) else "❌ Истек"
                 current_mode = user_modes.get(user_id, "не установлен")
+                memory_count = len(conversation_memory.get(user_id, []))
                 
                 user_info = (
                     f"🔍 Информация о пользователе {user_id}\n\n"
                     f"• Статус: {status}\n"
                     f"• Осталось дней: {remaining_days}\n"
                     f"• Текущий режим: {current_mode}\n"
-                    f"• Всего запросов: {total_requests}\n\n"
+                    f"• Всего запросов: {total_requests}\n"
+                    f"• Сообщений в памяти: {memory_count}\n\n"
                     f"📊 По режимам:\n"
                 )
                 
@@ -1134,53 +1326,66 @@ async def main_handler(message: types.Message):
         }
 
         # Определяем контекст для базовых приветствий
-        if any(word in user_text_lower for word in ["привет", "здравствуй", "добрый", "хай", "hello", "hi"]):
-            system_prompt = "Ты дружелюбный AI-помощник. Ответь на приветствие тепло и позитивно, но кратко. 1-2 предложения."
-        elif any(word in user_text_lower for word in ["пока", "до свидания", "прощай", "bye", "goodbye"]):
-            system_prompt = "Ты вежливый AI-помощник. Попрощайся тепло и пожелай чего-то хорошего. 1-2 предложения."
-        elif any(word in user_text_lower for word in ["как дела", "как ты", "как настроение"]):
-            system_prompt = "Ты позитивный AI-помощник. Ответь на вопрос о делах оптимистично и спроси как у пользователя. 1-2 предложения."
-        elif any(word in user_text_lower for word in ["спасибо", "благодарю", "thanks"]):
-            system_prompt = "Ты благодарный AI-помощник. Ответь на благодарность скромно и предложи дальнейшую помощь. 1-2 предложения."
-        else:
-            system_prompt = system_prompts.get(mode, "Ты умный и креативный AI-помощник. Отвечай информативно, но кратко.")
+        base_prompt = system_prompts.get(mode, "Ты умный и креативный AI-помощник. Отвечай информативно, но кратко.")
+        
+        # Добавляем понимание современного сленга
+        slang_knowledge = "\n\nТы также понимаешь современный сленг и мемы. Вот некоторые примеры:\n"
+        for slang, meaning in list(MODERN_SLANG.items())[:10]:  # Берем первые 10 примеров
+            slang_knowledge += f"- '{slang}' означает '{meaning}'\n"
+        
+        system_prompt = base_prompt + slang_knowledge
 
-        user_content = user_text
+        # Добавляем пользовательское сообщение в память
+        add_to_conversation_memory(chat_id, "user", user_text)
 
-        # Обработка reply-сообщений
+        # Получаем контекст диалога
+        conversation_context = get_conversation_context(chat_id)
+        
+        # Создаем сообщения для AI
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Добавляем историю диалога
+        for msg in conversation_context:
+            messages.append(msg)
+
+        # Обработка reply-сообщений для улучшения контекста
         if message.reply_to_message and message.reply_to_message.text:
             replied_text = message.reply_to_message.text
-
+            
             if any(w in user_text_lower for w in [
                     "доработать", "улучшить", "усовершенствовать", "покруче",
-                    "поправь", "исправь", "перепиши", "перефразируй"
+                    "поправь", "исправь", "перепиши", "перефразируй", "дополни"
             ]):
-                system_prompt = "Ты эксперт по улучшению текстов. Предложи 2-3 конкретных варианта доработки текста. Будь кратким."
-                user_content = f"Предложи варианты улучшения этого текста: {replied_text}"
+                user_content = f"Доработай этот текст: {replied_text}. Запрос: {user_text}"
+                messages.append({"role": "user", "content": user_content})
 
             elif any(w in user_text_lower for w in ["сократи", "сделай короче", "укороти", "кратко", "короче"]):
-                system_prompt = "Ты мастер сокращения текстов. Сократи текст до 2-3 предложений, сохраняя основную суть."
-                user_content = f"Сократи этот текст: {replied_text}"
+                user_content = f"Сократи этот текст: {replied_text}. Сделай его короче."
+                messages.append({"role": "user", "content": user_content})
 
             elif any(w in user_text_lower for w in [
                     "нормально", "правильно", "исправить", "мнение",
-                    "что думаешь", "критика", "совет"
+                    "что думаешь", "критика", "совет", "оцени"
             ]):
-                system_prompt = "Ты профессиональный редактор. Дай краткую конструктивную обратную связь по тексту."
                 user_content = f"Проанализируй этот текст: {replied_text}. Вопрос: {user_text}"
+                messages.append({"role": "user", "content": user_content})
+                
+            else:
+                # Обычный reply - добавляем как контекст
+                messages.append({"role": "user", "content": f"Предыдущее сообщение: {replied_text}"})
+                messages.append({"role": "user", "content": user_text})
+        else:
+            # Обычное сообщение без reply
+            messages.append({"role": "user", "content": user_text})
 
-        response = client.chat.complete(model=model,
-                                        messages=[{
-                                            "role": "system",
-                                            "content": system_prompt
-                                        }, {
-                                            "role": "user", 
-                                            "content": user_content
-                                        }])
+        response = client.chat.complete(model=model, messages=messages)
         ai_text = response.choices[0].message.content
 
         if not ai_text:
             ai_text = "❌ Не удалось получить ответ"
+
+        # Добавляем ответ AI в память
+        add_to_conversation_memory(chat_id, "assistant", ai_text)
 
         await send_long_message(message, str(ai_text), style, mode)
 
@@ -1197,10 +1402,10 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    print("🚀 Бот запущен и работает 24/7 на Railway!")
+    print("🚀 Бот запущен и работает 24/7!")
     print(f"🎁 Бесплатный период: {FREE_PERIOD_DAYS} дней")
     print("⏳ Система ожидания: 5 секунд между запросами")
+    print(f"💾 Память диалога: {MAX_CONVERSATION_HISTORY} сообщений")
+    print("🔤 Понимание современного сленга: активировано")
     print("👑 Админ-панель: доступна для ADMIN_ID")
     asyncio.run(main())
-
-
