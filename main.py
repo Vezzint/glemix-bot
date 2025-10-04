@@ -898,7 +898,7 @@ async def delete_thinking_message(chat_id: int, message_id: int):
 
 @dp.message(F.voice)
 async def handle_voice(message: types.Message):
-    """Обработка голосовых сообщений - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
+    """Обработка голосовых сообщений"""
     chat_id = message.chat.id
     
     # Проверка возможности сделать запрос
@@ -928,7 +928,7 @@ async def handle_voice(message: types.Message):
 
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
-    """Обработка фото с текстом - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
+    """Обработка фото с текстом"""
     chat_id = message.chat.id
     
     # Проверка возможности сделать запрос
@@ -956,7 +956,7 @@ async def handle_photo(message: types.Message):
         await delete_thinking_message(chat_id, thinking_msg_id)
         await message.answer("❌ Ошибка обработки фото")
 
-# Обработчики остальных кнопок (сокращено для краткости)
+# Обработчики остальных кнопок
 @dp.message(F.text == "🚀 Начать работу")
 async def handle_start_work(message: types.Message):
     await cmd_start(message)
@@ -993,13 +993,246 @@ async def handle_tariffs(message: types.Message):
     tariffs_text += "Выбери тариф для деталей 👇"
     await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
 
-# ... остальные обработчики кнопок ...
+@dp.message(F.text == "📊 Мой тариф")
+async def handle_my_tariff(message: types.Message):
+    chat_id = message.chat.id
+    current_tariff = get_user_tariff(chat_id)
+    tariff_info = TARIFFS[current_tariff]
+    remaining_days = get_remaining_days(chat_id)
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    is_free = is_free_period_active(chat_id)
+    
+    my_tariff_text = f"💎 Твой тариф: {tariff_info['name']}\n\n"
+    
+    if is_free:
+        my_tariff_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
+    else:
+        my_tariff_text += f"📅 Осталось дней: {remaining_days}\n"
+    
+    my_tariff_text += f"📊 Запросов сегодня: {remaining_requests}/{tariff_info['daily_limits']}\n"
+    my_tariff_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщ.\n"
+    my_tariff_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n\n"
+    my_tariff_text += f"Возможности:\n"
+    
+    for feature in tariff_info['features']:
+        my_tariff_text += f"{feature}\n"
+    
+    if is_free and remaining_days <= 2:
+        my_tariff_text += f"\n💡 После окончания бесплатного периода: {tariff_info['price']}"
+    
+    await message.answer(my_tariff_text)
+
+@dp.message(F.text == "📊 Статистика")
+async def handle_stats(message: types.Message):
+    chat_id = message.chat.id
+    current_tariff = get_user_tariff(chat_id)
+    remaining_days = get_remaining_days(chat_id)
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
+    memory_usage = len(conversation_memory.get(chat_id, []))
+    is_free = is_free_period_active(chat_id)
+    
+    stats_text = f"📊 Твоя статистика\n\n"
+    
+    if is_free:
+        stats_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
+    else:
+        stats_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
+        stats_text += f"📅 Осталось дней: {remaining_days}\n"
+    
+    stats_text += f"📨 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    stats_text += f"📈 Всего запросов: {total_requests}\n"
+    stats_text += f"💾 Память: {memory_usage}/{get_user_memory_limit(chat_id)}\n"
+    stats_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
+    stats_text += f"✅ Статус: {'Активен' if is_subscription_active(chat_id) else 'Неактивен'}"
+    
+    await message.answer(stats_text)
+
+@dp.message(F.text.in_(["🚀 Default", "⭐ Pro", "💎 Advanced", "👑 Ultimate"]))
+async def handle_tariff_selection(message: types.Message):
+    tariff_mapping = {
+        "🚀 Default": "default",
+        "⭐ Pro": "pro", 
+        "💎 Advanced": "advanced",
+        "👑 Ultimate": "ultimate"
+    }
+    
+    tariff_key = tariff_mapping.get(message.text, "default")
+    tariff_info = TARIFFS[tariff_key]
+    
+    tariff_text = f"{tariff_info['name']}\n\n"
+    tariff_text += f"{tariff_info['description']}\n\n"
+    
+    if tariff_info.get("is_free_first", False):
+        tariff_text += f"🎁 5 дней бесплатно, затем {tariff_info['price']}\n"
+    else:
+        tariff_text += f"💵 {tariff_info['price']}\n"
+    
+    tariff_text += f"📊 {tariff_info['daily_limits']} запросов в день\n"
+    tariff_text += f"💾 Память: {TARIFF_MEMORY[tariff_key]} сообщений\n"
+    tariff_text += f"⚡ Ожидание: {TARIFF_COOLDOWNS[tariff_key]} сек\n\n"
+    tariff_text += "Возможности:\n"
+    
+    for feature in tariff_info['features']:
+        tariff_text += f"{feature}\n"
+    
+    tariff_text += f"\n💎 Для активации обратитесь к администратору"
+    
+    await message.answer(tariff_text)
+
+@dp.message(F.text == "🎭 Режимы AI")
+async def handle_modes(message: types.Message):
+    mode_text = "🎭 Выбери режим работы:"
+    await message.answer(mode_text, reply_markup=get_mode_keyboard())
+
+@dp.message(F.text.in_(["🧘 Спокойный", "💬 Обычный", "⚡ Короткий", "🧠 Умный"]))
+async def handle_mode_selection(message: types.Message):
+    chat_id = message.chat.id
+    mode_mapping = {
+        "🧘 Спокойный": "спокойный",
+        "💬 Обычный": "обычный", 
+        "⚡ Короткий": "короткий",
+        "🧠 Умный": "умный"
+    }
+    
+    new_mode = mode_mapping.get(message.text, "обычный")
+    user_modes[chat_id] = new_mode
+    save_data(user_modes, DATA_FILES['user_modes'])
+    
+    await message.answer(f"✅ Режим изменен на: {message.text}", reply_markup=get_settings_keyboard())
 
 @dp.message(F.text == "⬅️ Назад")
 async def handle_back(message: types.Message):
     await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
 
-# Остальной код обработки сообщений остается без изменений...
+# =======================
+# ===== ОБРАБОТКА ОБЫЧНЫХ СООБЩЕНИЙ =====
+# =======================
+@dp.message()
+async def handle_all_messages(message: types.Message):
+    """Обработка всех текстовых сообщений"""
+    chat_id = message.chat.id
+    user_text = message.text or ""
+    
+    # Игнорируем команды и кнопки, которые уже обработаны
+    button_texts = [
+        "🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", 
+        "🌤️ Погода", "💎 Тарифы", "📊 Мой тариф", "📊 Статистика",
+        "🎭 Режимы AI", "🎨 Стиль общения", "ℹ️ Информация",
+        "⚡ Быстрые команды", "⬅️ Назад", "🚀 Default", "⭐ Pro",
+        "💎 Advanced", "👑 Ultimate", "🧘 Спокойный", "💬 Обычный",
+        "⚡ Короткий", "🧠 Умный", "💫 Дружелюбный", "⚖️ Сбалансированный",
+        "🎯 Деловой", "🎨 Креативный", "📝 Конвертер валют", "🎯 Случайный выбор",
+        "📅 Текущая дата", "⏰ Текущее время", "🔢 Калькулятор", "🎁 Сюрприз",
+        "🛠️ Админ-панель", "👥 Статистика пользователей", "📊 Общая статистика",
+        "💎 Управление тарифами", "📢 Рассылка", "🔍 Поиск пользователя", 
+        "📋 Логи действий", "⚙️ Сброс данных пользователя", "🔄 Сброс дневных лимитов",
+        "🚀 Выдать Default", "⭐ Выдать Pro", "💎 Выдать Advanced", "👑 Выдать Ultimate",
+        "🗑️ Сбросить тариф", "📅 Продлить на 30 дней", "⬅️ Админ-панель", "⬅️ Главное меню"
+    ]
+    
+    if user_text.startswith('/') or user_text in button_texts:
+        return
+    
+    # Проверка возможности сделать запрос
+    can_request, error_msg = can_user_make_request(chat_id)
+    if not can_request:
+        await message.answer(error_msg)
+        return
+    
+    # Проверка времени ожидания
+    current_time = time.time()
+    last_request = user_last_request.get(chat_id, 0)
+    cooldown = get_user_cooldown(chat_id)
+    
+    if current_time - last_request < cooldown:
+        remaining = cooldown - int(current_time - last_request)
+        await message.answer(f"⏳ Подожди {remaining} сек.")
+        return
+    
+    user_last_request[chat_id] = current_time
+    
+    # Отправляем "Думаю"
+    thinking_msg_id = await send_thinking_message(chat_id)
+    
+    try:
+        # Обновляем счетчики
+        increment_daily_requests(chat_id)
+        user_requests_count[chat_id] = user_requests_count.get(chat_id, {})
+        user_requests_count[chat_id]["total"] = user_requests_count[chat_id].get("total", 0) + 1
+        save_data(user_requests_count, DATA_FILES['user_requests_count'])
+        
+        # Обработка быстрых команд
+        user_text_lower = user_text.lower()
+        
+        if any(word in user_text_lower for word in ["погода", "погоду"]):
+            city = user_text_lower.replace("погода", "").replace("погоду", "").strip()
+            if not city:
+                city = "Москва"
+            weather_info = await get_weather(city)
+            response_text = weather_info
+            
+        elif "курс" in user_text_lower or "валют" in user_text_lower:
+            response_text = "💱 Курсы валют:\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽"
+            
+        elif any(word in user_text_lower for word in ["посчитай", "сколько будет", "="]):
+            # Простой калькулятор
+            try:
+                expr = user_text_lower.replace("посчитай", "").replace("сколько будет", "").replace("=", "").strip()
+                # Безопасное вычисление
+                allowed_chars = set('0123456789+-*/.() ')
+                if all(c in allowed_chars for c in expr):
+                    result = eval(expr)
+                    response_text = f"🔢 {expr} = {result}"
+                else:
+                    response_text = "❌ Небезопасное выражение"
+            except:
+                response_text = "❌ Не могу вычислить"
+                
+        else:
+            # AI-ответ
+            try:
+                # Подготовка контекста
+                if chat_id not in conversation_memory:
+                    conversation_memory[chat_id] = []
+                
+                messages = [
+                    {"role": "system", "content": "Отвечай максимально кратко и по делу. Без лишних слов и вступлений. Только суть. Ответ должен быть не более 2-3 предложений."},
+                    {"role": "user", "content": user_text}
+                ]
+                
+                # Добавляем историю если есть
+                for msg in conversation_memory[chat_id][-3:]:  # Только последние 3 сообщения для экономии
+                    messages.insert(1, msg)
+                
+                response = client.chat.complete(model=model, messages=messages)
+                ai_text = response.choices[0].message.content
+                
+                # Сохраняем в память
+                conversation_memory[chat_id].append({"role": "user", "content": user_text})
+                conversation_memory[chat_id].append({"role": "assistant", "content": ai_text})
+                
+                # Ограничиваем память
+                memory_limit = get_user_memory_limit(chat_id)
+                if len(conversation_memory[chat_id]) > memory_limit:
+                    conversation_memory[chat_id] = conversation_memory[chat_id][-memory_limit:]
+                
+                save_data(conversation_memory, DATA_FILES['conversation_memory'])
+                response_text = ai_text
+                
+            except Exception as e:
+                logger.error(f"AI error: {e}")
+                response_text = "⚠️ Ошибка, попробуй еще раз"
+        
+        # Отправляем краткий ответ
+        await delete_thinking_message(chat_id, thinking_msg_id)
+        concise_response = create_concise_response(response_text)
+        await message.answer(concise_response)
+        
+    except Exception as e:
+        logger.error(f"Handler error: {e}")
+        await delete_thinking_message(chat_id, thinking_msg_id)
+        await message.answer("❌ Ошибка")
 
 async def get_weather(city: str) -> str:
     """Получение погоды"""
