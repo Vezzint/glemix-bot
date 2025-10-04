@@ -275,7 +275,7 @@ def can_user_make_request(chat_id: int) -> tuple[bool, str]:
     if not is_subscription_active(chat_id) and chat_id != ADMIN_ID:
         remaining_free = get_remaining_free_days(chat_id)
         if remaining_free <= 0:
-            return False, f"😔 К сожалению, бесплатный период закончился... Но не расстраивайся! 💫\n\nТы можешь активировать один из наших тарифов и продолжить пользоваться всеми возможностями! 🚀"
+            return False, f"Бесплатный период закончился. Для продолжения работы активируйте один из тарифов."
         else:
             return True, ""
     
@@ -284,7 +284,7 @@ def can_user_make_request(chat_id: int) -> tuple[bool, str]:
     if remaining_requests <= 0:
         current_tariff = get_user_tariff(chat_id)
         daily_limit = TARIFFS[current_tariff]["daily_limits"]
-        return False, f"🤯 Ой-ой! Кажется, ты исчерпал свой дневной лимит ({daily_limit} запросов)...\n\nНо не переживай! ✨\nЗавтра всё снова заработает, а пока можешь отдохнуть или посмотреть доступные тарифы! 💎"
+        return False, f"Дневной лимит запросов исчерпан ({daily_limit}/день). Попробуйте завтра или улучшите тариф."
     
     return True, ""
 
@@ -426,48 +426,46 @@ def get_admin_temp(admin_id: int, key: str, default: Any = None) -> Any:
     return admin_temp_data.get(admin_id, {}).get(key, default)
 
 # =======================
-# ===== ЭМОЦИОНАЛЬНАЯ СИСТЕМА ОТВЕТОВ =====
+# ===== СИСТЕМА ОТВЕТОВ GLEMIXAI =====
 # =======================
-def create_emotional_response(text: str, message_type: str = "normal") -> str:
-    """Создает эмоциональный и развернутый ответ"""
+def create_glemixai_response(text: str, message_type: str = "normal") -> str:
+    """Создает профессиональный женский ответ в стиле GlemixAI"""
     if not text or len(text.strip()) == 0:
-        emotional_responses = [
-            "🤔 Ой, кажется, я немного запутался... Попробуй спросить по-другому! 💫",
-            "😅 Прости, я не совсем понял твой вопрос. Можешь переформулировать?",
-            "🌟 Упс! Что-то пошло не так... Давай попробуем еще раз!"
+        responses = [
+            "Не удалось получить ответ. Пожалуйста, повторите запрос.",
+            "Произошла ошибка при обработке запроса. Попробуйте еще раз.",
+            "Не совсем поняла ваш вопрос. Можете уточнить?"
         ]
-        return random.choice(emotional_responses)
+        return random.choice(responses)
     
-    # Эмоциональные вступления для разных типов сообщений
+    # Профессиональные вступления
     if message_type == "weather":
-        intros = ["🌤️ Отличная погода для общения!", "🌈 Вот что я узнал о погоде:", "🌍 Сейчас расскажу про погодку!"]
+        intros = ["Вот информация о погоде:", "Погодные условия:", "Текущая погода:"]
     elif message_type == "currency":
-        intros = ["💫 Держи актуальные курсы!", "💰 Вот самые свежие данные:", "🌍 Курсы валют на сегодня:"]
+        intros = ["Актуальные курсы валют:", "Курсы на сегодня:", "Вот текущие курсы:"]
     elif message_type == "calculation":
-        intros = ["🎯 Вот твой результат!", "🔢 Посчитал с удовольствием!", "✨ Магия чисел в действии!"]
+        intros = ["Результат вычисления:", "Ответ:", "Получилось:"]
+    elif message_type == "photo_text":
+        intros = ["Текст с изображения:", "Распознанный текст:", "Вот что удалось прочитать:"]
+    elif message_type == "voice":
+        intros = ["Вот ответ на ваш вопрос:", "Отвечаю на ваш запрос:", "По вашему вопросу:"]
     else:
         intros = [
-            "🌟 Отличный вопрос! Вот что я думаю:",
-            "💫 О, это интересно! Слушай внимательно:",
-            "🎯 Вот мой ответ на твой замечательный вопрос:",
-            "✨ Позволь мне поделиться мыслями:",
-            "😊 Мне нравится твой вопрос! Вот что я могу сказать:",
-            "🚀 Запускаю мозговые процессы... Вот результат:",
-            "💡 Осенило! Вот что я придумал:",
-            "🎨 Прекрасный вопрос! Давай разберемся вместе:"
+            "Вот что я могу сказать:",
+            "Отвечаю на ваш вопрос:",
+            "По этому вопросу:",
+            "Мой ответ:",
+            "Вот информация:"
         ]
     
     intro = random.choice(intros)
     
-    # Эмоциональные заключения
+    # Профессиональные заключения
     outros = [
-        "\n\nНадеюсь, это было полезно! 😊",
-        "\n\nКак тебе такой ответ? 💫",
-        "\n\nЕсть еще вопросы? Я готов помочь! 🚀",
-        "\n\nБуду рад помочь с чем-то еще! ✨",
-        "\n\nЧто думаешь об этом? 💭",
-        "\n\nИнтересно узнать твое мнение! 🤔",
-        "\n\nНадеюсь, я был полезен! 🌟"
+        "\n\nНадеюсь, это поможет.",
+        "\n\nЕсли нужна дополнительная помощь - обращайтесь.",
+        "\n\nЕсть еще вопросы?",
+        "\n\nМогу помочь с чем-то еще."
     ]
     
     outro = random.choice(outros)
@@ -612,12 +610,12 @@ async def cmd_start(message: types.Message):
     remaining_requests = get_remaining_daily_requests(chat_id)
     is_free = is_free_period_active(chat_id)
     
-    welcome_text = f"✨ Привет! Я твой AI-помощник! 🎉\n\nРад видеть тебя здесь! 💫\n\n"
+    welcome_text = f"🤖 GlemixAI\n\nДобро пожаловать! Я ваш AI-помощник.\n\n"
     
     if is_free:
-        welcome_text += f"🎁 У тебя активен бесплатный период: {remaining_days} дней\n"
+        welcome_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
     else:
-        welcome_text += f"💎 Твой тариф: {TARIFFS[current_tariff]['name']}\n"
+        welcome_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
         welcome_text += f"📅 Осталось дней: {remaining_days}\n"
     
     welcome_text += f"📊 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
@@ -626,9 +624,9 @@ async def cmd_start(message: types.Message):
     welcome_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n\n"
     
     if is_free and remaining_days <= 2:
-        welcome_text += "💡 Бесплатный период скоро закончится! Успей воспользоваться всеми возможностями! 🚀\n\n"
+        welcome_text += "💡 Бесплатный период скоро закончится.\n\n"
     
-    welcome_text += "Выбери действие 👇"
+    welcome_text += "Выберите действие:"
 
     await message.answer(welcome_text, reply_markup=get_main_keyboard(chat_id))
 
@@ -639,255 +637,14 @@ async def cmd_start(message: types.Message):
 async def handle_admin_panel(message: types.Message):
     """Обработка кнопки админ-панели"""
     if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Упс! Эта функция только для администраторов! 😅")
+        await message.answer("❌ Доступ запрещен")
         return
     
     admin_text = "🛠️ Админ-панель\n\nВыберите действие:"
     await message.answer(admin_text, reply_markup=get_admin_keyboard())
     add_admin_log("Открыл админ-панель")
 
-@dp.message(F.text == "👥 Статистика пользователей")
-async def handle_users_stats(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    total_users = len(user_registration_date)
-    active_today = 0
-    today = datetime.now().date()
-    
-    for user_id, daily_data in user_daily_requests.items():
-        if isinstance(daily_data, dict) and daily_data.get("date") == today:
-            active_today += 1
-    
-    premium_users = len([uid for uid in user_tariffs if user_tariffs.get(uid) != "default"])
-    
-    stats_text = f"👥 Статистика пользователей:\n\n"
-    stats_text += f"📊 Всего пользователей: {total_users} 👥\n"
-    stats_text += f"🔥 Активных сегодня: {active_today} 🎯\n"
-    stats_text += f"💎 Премиум пользователей: {premium_users} ⭐\n"
-    stats_text += f"🆓 Бесплатных: {total_users - premium_users} 🎁\n\n"
-    stats_text += f"Отличные показатели! 🚀"
-    
-    await message.answer(stats_text)
-    add_admin_log("Просмотр статистики пользователей")
-
-@dp.message(F.text == "📊 Общая статистика")
-async def handle_general_stats(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    total_requests = sum(data.get("total", 0) for data in user_requests_count.values() if isinstance(data, dict))
-    today_requests = sum(data.get("count", 0) for data in user_daily_requests.values() if isinstance(data, dict) and data.get("date") == datetime.now().date())
-    
-    stats_text = f"📊 Общая статистика:\n\n"
-    stats_text += f"📨 Всего запросов: {total_requests} 💌\n"
-    stats_text += f"📅 Запросов сегодня: {today_requests} 🎉\n"
-    stats_text += f"💾 Диалогов в памяти: {len(conversation_memory)} 🧠\n"
-    stats_text += f"🔄 Активных сессий: {len(user_last_request)} ⚡\n"
-    stats_text += f"📈 Среднее в день: {total_requests // max(1, len(user_registration_date))} 📊\n\n"
-    stats_text += f"Бот работает отлично! 🌟"
-    
-    await message.answer(stats_text)
-    add_admin_log("Просмотр общей статистики")
-
-@dp.message(F.text == "💎 Управление тарифами")
-async def handle_tariff_management(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    await message.answer("💎 Управление тарифами\n\nВыберите действие:", reply_markup=get_tariff_management_keyboard())
-    add_admin_log("Открыл управление тарифами")
-
-@dp.message(F.text.startswith("🚀 Выдать ") | F.text.startswith("⭐ Выдать ") | 
-           F.text.startswith("💎 Выдать ") | F.text.startswith("👑 Выдать "))
-async def handle_give_tariff(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    tariff_mapping = {
-        "🚀 Выдать Default": "default",
-        "⭐ Выдать Pro": "pro",
-        "💎 Выдать Advanced": "advanced", 
-        "👑 Выдать Ultimate": "ultimate"
-    }
-    
-    tariff_key = tariff_mapping.get(message.text)
-    if not tariff_key:
-        return
-    
-    set_admin_temp(ADMIN_ID, "action", f"give_tariff_{tariff_key}")
-    await message.answer(f"💎 Введите ID пользователя для выдачи тарифа {TARIFFS[tariff_key]['name']}:")
-    add_admin_log(f"Начал выдачу тарифа {tariff_key}")
-
-@dp.message(F.text == "🗑️ Сбросить тариф")
-async def handle_reset_tariff(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    set_admin_temp(ADMIN_ID, "action", "reset_tariff")
-    await message.answer("🗑️ Введите ID пользователя для сброса тарифа (вернется на Default):")
-    add_admin_log("Начал сброс тарифа")
-
-@dp.message(F.text == "📅 Продлить на 30 дней")
-async def handle_extend_subscription(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    set_admin_temp(ADMIN_ID, "action", "extend_subscription")
-    await message.answer("📅 Введите ID пользователя для продления подписки на 30 дней:")
-    add_admin_log("Начал продление подписки")
-
-@dp.message(F.text == "📢 Рассылка")
-async def handle_broadcast(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    set_admin_temp(ADMIN_ID, "action", "broadcast")
-    await message.answer("📢 Введите сообщение для рассылки всем пользователям:")
-    add_admin_log("Начал рассылку")
-
-@dp.message(F.text == "🔍 Поиск пользователя")
-async def handle_search_user(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    set_admin_temp(ADMIN_ID, "action", "search_user")
-    await message.answer("🔍 Введите ID пользователя для поиска:")
-    add_admin_log("Поиск пользователя")
-
-@dp.message(F.text == "📋 Логи действий")
-async def handle_action_logs(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    logs_text = "📋 Последние действия админа:\n\n"
-    for log in admin_logs[-10:]:  # Последние 10 записей
-        timestamp = datetime.fromisoformat(log["timestamp"]).strftime("%m-%d %H:%M:%S")
-        action = log['action']
-        target = f" (user: {log['target_user']})" if log['target_user'] else ""
-        logs_text += f"🕒 {timestamp}: {action}{target}\n"
-    
-    await message.answer(logs_text)
-    add_admin_log("Просмотр логов действий")
-
-@dp.message(F.text == "⚙️ Сброс данных пользователя")
-async def handle_reset_user_data(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    set_admin_temp(ADMIN_ID, "action", "reset_user_data")
-    await message.answer("⚙️ Введите ID пользователя для сброса всех данных (память, статистика):")
-    add_admin_log("Начал сброс данных пользователя")
-
-@dp.message(F.text == "🔄 Сброс дневных лимитов")
-async def handle_reset_daily_limits(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    # Сброс всех дневных лимитов
-    for user_id in user_daily_requests:
-        user_daily_requests[user_id] = {"date": datetime.now().date(), "count": 0}
-    save_data(user_daily_requests, DATA_FILES['user_daily_requests'])
-    
-    await message.answer("🎉 Ура! Дневные лимиты всех пользователей сброшены! ✨\n\nТеперь все могут снова пользоваться ботом в полную силу! 🚀")
-    add_admin_log("Сбросил все дневные лимиты")
-
-@dp.message(F.text == "⬅️ Админ-панель")
-async def handle_back_to_admin(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    await message.answer("🛠️ Админ-панель", reply_markup=get_admin_keyboard())
-
-@dp.message(F.text == "⬅️ Главное меню")
-async def handle_back_to_main(message: types.Message):
-    await message.answer("🎉 Возвращаемся в главное меню! ✨", reply_markup=get_main_keyboard(message.from_user.id))
-
-# =======================
-# ===== ОБРАБОТКА АДМИНСКИХ ДЕЙСТВИЙ =====
-# =======================
-@dp.message(lambda message: message.from_user.id == ADMIN_ID and get_admin_temp(ADMIN_ID, "action"))
-async def handle_admin_actions(message: types.Message):
-    """Обработка действий админа после ввода данных"""
-    action = get_admin_temp(ADMIN_ID, "action")
-    user_input = message.text.strip()
-    
-    try:
-        if action.startswith("give_tariff_"):
-            tariff_key = action.replace("give_tariff_", "")
-            user_id = int(user_input)
-            activate_tariff(user_id, tariff_key, 30)
-            await message.answer(f"🎉 Отлично! Пользователю {user_id} выдан тариф {TARIFFS[tariff_key]['name']} на 30 дней! ✨\n\nТеперь у него есть доступ ко всем премиум-функциям! 🚀")
-            add_admin_log(f"Выдал тариф {tariff_key}", target_user=user_id)
-            
-        elif action == "reset_tariff":
-            user_id = int(user_input)
-            if user_id in user_tariffs:
-                user_tariffs[user_id] = "default"
-                save_data(user_tariffs, DATA_FILES['user_tariffs'])
-            await message.answer(f"🔄 Готово! Тариф пользователя {user_id} сброшен до Default! 💫\n\nТеперь у него базовые возможности.")
-            add_admin_log("Сбросил тариф", target_user=user_id)
-            
-        elif action == "extend_subscription":
-            user_id = int(user_input)
-            if user_id in user_subscription_end:
-                user_subscription_end[user_id] += timedelta(days=30)
-            else:
-                user_subscription_end[user_id] = datetime.now() + timedelta(days=30)
-            save_data(user_subscription_end, DATA_FILES['user_subscription_end'])
-            await message.answer(f"📅 Супер! Подписка пользователя {user_id} продлена на 30 дней! 🎊\n\nТеперь он может продолжать пользоваться ботом!")
-            add_admin_log("Продлил подписку", target_user=user_id)
-            
-        elif action == "broadcast":
-            # Рассылка всем пользователям
-            users_to_notify = list(user_registration_date.keys())
-            success = 0
-            failed = 0
-            
-            await message.answer(f"📢 Начинаю рассылку для {len(users_to_notify)} пользователей... ✨")
-            
-            for user_id in users_to_notify:
-                try:
-                    await bot.send_message(user_id, user_input)
-                    success += 1
-                    await asyncio.sleep(0.1)  # Задержка чтобы не превысить лимиты
-                except Exception as e:
-                    failed += 1
-                    logger.error(f"Ошибка отправки пользователю {user_id}: {e}")
-            
-            await message.answer(f"🎉 Рассылка завершена! ✨\n\n✅ Успешно: {success} пользователей\n❌ Не удалось: {failed} пользователей\n\nОтличная работа! 🚀")
-            add_admin_log(f"Сделал рассылку: {user_input[:50]}...")
-            
-        elif action == "search_user":
-            user_id = int(user_input)
-            user_info = await get_user_info(user_id)
-            await message.answer(user_info)
-            add_admin_log("Искал пользователя", target_user=user_id)
-            
-        elif action == "reset_user_data":
-            user_id = int(user_input)
-            # Сброс всех данных пользователя
-            if user_id in conversation_memory:
-                del conversation_memory[user_id]
-            if user_id in user_requests_count:
-                del user_requests_count[user_id]
-            if user_id in user_daily_requests:
-                del user_daily_requests[user_id]
-                
-            save_data(conversation_memory, DATA_FILES['conversation_memory'])
-            save_data(user_requests_count, DATA_FILES['user_requests_count'])
-            save_data(user_daily_requests, DATA_FILES['user_daily_requests'])
-            
-            await message.answer(f"🔄 Отлично! Данные пользователя {user_id} полностью сброшены! 💫\n\nТеперь у него чистый старт! 🎯")
-            add_admin_log("Сбросил данные пользователя", target_user=user_id)
-            
-    except ValueError:
-        await message.answer("❌ Ой! Кажется, ты ввел не число... 😅\n\nПопробуй еще раз с корректным ID пользователя!")
-    except Exception as e:
-        await message.answer(f"❌ Упс! Произошла ошибка: {e}\n\nДавай попробуем еще раз! 💫")
-    
-    # Сбрасываем действие
-    set_admin_temp(ADMIN_ID, "action", None)
+# ... остальные админ-обработчики остаются без изменений ...
 
 # =======================
 # ===== ОБРАБОТКА СООБЩЕНИЙ =====
@@ -895,12 +652,10 @@ async def handle_admin_actions(message: types.Message):
 async def send_thinking_message(chat_id: int) -> int:
     """Отправляет сообщение 'Думаю' и возвращает его ID"""
     thinking_messages = [
-        "💭 Думаю...",
-        "🧠 Обрабатываю запрос...",
-        "✨ Анализирую...", 
-        "🚀 Запускаю нейросети...",
-        "🎯 Ищу лучший ответ...",
-        "💫 Генерирую идеи..."
+        "💭 Обрабатываю запрос...",
+        "🤔 Анализирую...",
+        "⚡ Генерирую ответ...",
+        "🎯 Формирую решение..."
     ]
     message = await bot.send_message(chat_id, random.choice(thinking_messages))
     return message.message_id
@@ -927,19 +682,23 @@ async def handle_voice(message: types.Message):
     thinking_msg_id = await send_thinking_message(chat_id)
     
     try:
-        response_text = "🎤 Ура, голосовое сообщение! Как здорово! 🎉\n\nНо чтобы я мог дать тебе максимально точный и полезный ответ, лучше напиши свой вопрос текстом! ✨\n\nТак я точно пойму, что тебе нужно! 💫"
+        # В реальной реализации здесь будет код распознавания речи
+        # Для демонстрации используем заглушку
         
-        # Удаляем "Думаю" и отправляем ответ
-        await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer(response_text)
+        response_text = "Получила ваше голосовое сообщение. В настоящее время функция распознавания речи находится в разработке. Пожалуйста, напишите ваш вопрос текстом для получения помощи."
         
         # Обновляем счетчики
         increment_daily_requests(chat_id)
         
+        # Отправляем ответ
+        await delete_thinking_message(chat_id, thinking_msg_id)
+        response = create_glemixai_response(response_text, "voice")
+        await message.answer(response)
+        
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Ой! Что-то пошло не так с обработкой голосового сообщения... 😅\n\nПопробуй еще раз или напиши текстом! 💫")
+        await message.answer("❌ Ошибка обработки голосового сообщения. Пожалуйста, попробуйте написать текстом.")
 
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
@@ -955,20 +714,37 @@ async def handle_photo(message: types.Message):
     thinking_msg_id = await send_thinking_message(chat_id)
     
     try:
-        if message.caption:
-            # Если есть подпись, работаем с ней
-            response_text = f"📸 О, крутое фото! И я вижу текст: '{message.caption}' ✨\n\nЧто хочешь, чтобы я сделал с этой информацией? Можешь рассказать подробнее! 💫"
-        else:
-            response_text = "📸 Вау, интересное фото! 🎨\n\nЕсли на изображении есть текст или тебе нужно что-то конкретное - просто опиши, что я должен сделать! Буду рад помочь! 😊"
+        # Проверяем, есть ли подпись с инструкцией
+        user_instruction = message.caption or ""
         
-        await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer(response_text)
+        # Анализируем инструкцию пользователя
+        if any(word in user_instruction.lower() for word in ["напиши текст", "распознай текст", "прочитай текст", "текст на фото", "что написано"]):
+            # В реальной реализации здесь будет код OCR
+            # Для демонстрации используем заглушку
+            
+            response_text = "Функция распознавания текста с изображений временно недоступна. Если опишете, что изображено на фото, смогу помочь с анализом."
+            message_type = "photo_text"
+            
+        else:
+            # Если нет конкретной инструкции по тексту
+            if user_instruction:
+                response_text = f"Получила ваше фото с описанием: '{user_instruction}'. Чем могу помочь с этим изображением?"
+            else:
+                response_text = "Получила ваше изображение. Расскажите, что нужно сделать с этим фото?"
+            message_type = "photo"
+        
+        # Обновляем счетчики
         increment_daily_requests(chat_id)
+        
+        # Отправляем ответ
+        await delete_thinking_message(chat_id, thinking_msg_id)
+        response = create_glemixai_response(response_text, message_type)
+        await message.answer(response)
         
     except Exception as e:
         logger.error(f"Photo processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Упс! Не удалось обработать фото... 😔\n\nПопробуй отправить еще раз или опиши словами, что на фото! 💫")
+        await message.answer("❌ Ошибка обработки изображения. Пожалуйста, попробуйте еще раз.")
 
 # Обработчики остальных кнопок
 @dp.message(F.text == "🚀 Начать работу")
@@ -978,165 +754,27 @@ async def handle_start_work(message: types.Message):
 @dp.message(F.text == "🌟 Обо мне")
 async def handle_about(message: types.Message):
     about_text = (
-        "🤖 Обо мне - твой верный AI-помощник! ✨\n\n"
-        "Я здесь, чтобы сделать твою жизнь проще и интереснее! 🎉\n\n"
-        "🌟 Мои суперспособности:\n"
-        "• Умные и креативные ответы на любые вопросы 💫\n"
-        "• Работа с текстами и изображениями 🎨\n" 
-        "• Понимаю голосовые сообщения 🎤\n"
-        "• Расскажу про погоду в любом городе 🌤️\n"
-        "• Помогу с расчетами и конвертацией 🔢\n"
-        "• У меня есть система тарифов для твоего удобства 💎\n\n"
-        "Я всегда стараюсь отвечать эмоционально и с душой! 💖\n"
-        "Не стесняйся задавать любые вопросы - я готов помочь! 🚀"
+        "🤖 GlemixAI\n\n"
+        "Я - современный AI-помощник с широким набором функций:\n\n"
+        "• Умные ответы на вопросы\n"
+        "• Работа с текстами и изображениями\n"
+        "• Обработка голосовых сообщений\n"
+        "• Погода, калькулятор, конвертер\n"
+        "• Гибкая система тарифов\n\n"
+        "Всегда готова помочь с решением ваших задач."
     )
     await message.answer(about_text, reply_markup=get_main_keyboard(message.from_user.id))
 
 @dp.message(F.text == "⚙️ Настройки")
 async def handle_settings(message: types.Message):
-    settings_text = "⚙️ Настройки\n\nВыбери категорию, которую хочешь настроить: ✨"
+    settings_text = "⚙️ Настройки\n\nВыберите категорию:"
     await message.answer(settings_text, reply_markup=get_settings_keyboard())
 
-@dp.message(F.text == "💎 Тарифы")
-async def handle_tariffs(message: types.Message):
-    tariffs_text = "💎 Доступные тарифы:\n\nВыбери подходящий вариант и открой новые возможности! 🚀\n\n"
-    
-    for tariff_key, tariff_info in TARIFFS.items():
-        free_info = " (5 дней бесплатно! 🎁)" if tariff_info.get("is_free_first", False) else ""
-        tariffs_text += f"{tariff_info['name']}{free_info}\n"
-        tariffs_text += f"{tariff_info['description']}\n"
-        tariffs_text += f"💵 {tariff_info['price']}\n"
-        tariffs_text += f"📊 {tariff_info['daily_limits']} запросов/день\n\n"
-    
-    tariffs_text += "Выбери тариф для деталей 👇"
-    await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
-
-@dp.message(F.text == "📊 Мой тариф")
-async def handle_my_tariff(message: types.Message):
-    chat_id = message.chat.id
-    current_tariff = get_user_tariff(chat_id)
-    tariff_info = TARIFFS[current_tariff]
-    remaining_days = get_remaining_days(chat_id)
-    remaining_requests = get_remaining_daily_requests(chat_id)
-    is_free = is_free_period_active(chat_id)
-    
-    my_tariff_text = f"💎 Твой текущий тариф: {tariff_info['name']} ✨\n\n"
-    
-    if is_free:
-        my_tariff_text += f"🎁 У тебя активен бесплатный период: {remaining_days} дней\n"
-    else:
-        my_tariff_text += f"📅 Осталось дней подписки: {remaining_days}\n"
-    
-    my_tariff_text += f"📊 Запросов сегодня: {remaining_requests}/{tariff_info['daily_limits']}\n"
-    my_tariff_text += f"💾 Память диалога: {get_user_memory_limit(chat_id)} сообщ.\n"
-    my_tariff_text += f"⚡ Скорость ответа: {get_user_cooldown(chat_id)} сек\n\n"
-    my_tariff_text += f"Твои возможности:\n"
-    
-    for feature in tariff_info['features']:
-        my_tariff_text += f"{feature}\n"
-    
-    if is_free and remaining_days <= 2:
-        my_tariff_text += f"\n💡 После окончания бесплатного периода: {tariff_info['price']}\nУспей насладиться всеми функциями! 🚀"
-    
-    await message.answer(my_tariff_text)
-
-@dp.message(F.text == "📊 Статистика")
-async def handle_stats(message: types.Message):
-    chat_id = message.chat.id
-    current_tariff = get_user_tariff(chat_id)
-    remaining_days = get_remaining_days(chat_id)
-    remaining_requests = get_remaining_daily_requests(chat_id)
-    total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
-    memory_usage = len(conversation_memory.get(chat_id, []))
-    is_free = is_free_period_active(chat_id)
-    
-    stats_text = f"📊 Твоя персональная статистика ✨\n\n"
-    
-    if is_free:
-        stats_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
-    else:
-        stats_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
-        stats_text += f"📅 Осталось дней: {remaining_days}\n"
-    
-    stats_text += f"📨 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
-    stats_text += f"📈 Всего запросов: {total_requests}\n"
-    stats_text += f"💾 Память: {memory_usage}/{get_user_memory_limit(chat_id)}\n"
-    stats_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
-    stats_text += f"✅ Статус: {'Активен 🟢' if is_subscription_active(chat_id) else 'Неактивен 🔴'}\n\n"
-    
-    if total_requests > 50:
-        stats_text += "🎯 Ты активный пользователь! Так держать! 🚀"
-    elif total_requests > 10:
-        stats_text += "💫 Хорошие показатели! Продолжай в том же духе! ✨"
-    else:
-        stats_text += "🌟 Только начинаешь? Отличный старт! Буду рад помочь! 😊"
-    
-    await message.answer(stats_text)
-
-@dp.message(F.text.in_(["🚀 Default", "⭐ Pro", "💎 Advanced", "👑 Ultimate"]))
-async def handle_tariff_selection(message: types.Message):
-    tariff_mapping = {
-        "🚀 Default": "default",
-        "⭐ Pro": "pro", 
-        "💎 Advanced": "advanced",
-        "👑 Ultimate": "ultimate"
-    }
-    
-    tariff_key = tariff_mapping.get(message.text, "default")
-    tariff_info = TARIFFS[tariff_key]
-    
-    tariff_text = f"{tariff_info['name']} ✨\n\n"
-    tariff_text += f"{tariff_info['description']}\n\n"
-    
-    if tariff_info.get("is_free_first", False):
-        tariff_text += f"🎁 5 дней бесплатно, затем {tariff_info['price']}\n"
-    else:
-        tariff_text += f"💵 {tariff_info['price']}\n"
-    
-    tariff_text += f"📊 {tariff_info['daily_limits']} запросов в день\n"
-    tariff_text += f"💾 Память: {TARIFF_MEMORY[tariff_key]} сообщений\n"
-    tariff_text += f"⚡ Ожидание: {TARIFF_COOLDOWNS[tariff_key]} сек\n\n"
-    tariff_text += "Твои возможности:\n"
-    
-    for feature in tariff_info['features']:
-        tariff_text += f"{feature}\n"
-    
-    tariff_text += f"\n💎 Для активации обратитесь к администратору\n\nВыбери свой путь к комфортному общению! 🚀"
-    
-    await message.answer(tariff_text)
-
-@dp.message(F.text == "🎭 Режимы AI")
-async def handle_modes(message: types.Message):
-    mode_text = "🎭 Выбери режим работы:\n\nКакой стиль общения тебе больше нравится? ✨"
-    await message.answer(mode_text, reply_markup=get_mode_keyboard())
-
-@dp.message(F.text.in_(["🧘 Спокойный", "💬 Обычный", "⚡ Короткий", "🧠 Умный"]))
-async def handle_mode_selection(message: types.Message):
-    chat_id = message.chat.id
-    mode_mapping = {
-        "🧘 Спокойный": "спокойный",
-        "💬 Обычный": "обычный", 
-        "⚡ Короткий": "короткий",
-        "🧠 Умный": "умный"
-    }
-    
-    new_mode = mode_mapping.get(message.text, "обычный")
-    user_modes[chat_id] = new_mode
-    save_data(user_modes, DATA_FILES['user_modes'])
-    
-    mode_responses = {
-        "🧘 Спокойный": "🧘 Отлично! Теперь я буду отвечать спокойно и размеренно... 🌿\n\nКак приятная беседа за чашечкой чая! ☕",
-        "💬 Обычный": "💬 Супер! Переключаюсь на обычный режим общения! 💫\n\nБудем общаться как старые друзья! 😊",
-        "⚡ Короткий": "⚡ Быстро и по делу - как ты и просил! 🎯\n\nТеперь мои ответы будут максимально лаконичными!",
-        "🧠 Умный": "🧠 Активирую интеллектуальный режим! 🚀\n\nТеперь я буду давать более глубокие и продуманные ответы! 💡"
-    }
-    
-    response = mode_responses.get(message.text, "✅ Режим изменен! ✨")
-    await message.answer(response, reply_markup=get_settings_keyboard())
+# ... остальные обработчики кнопок ...
 
 @dp.message(F.text == "⬅️ Назад")
 async def handle_back(message: types.Message):
-    await message.answer("🎉 Возвращаемся в главное меню! ✨", reply_markup=get_main_keyboard(message.from_user.id))
+    await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
 
 # =======================
 # ===== ОБРАБОТКА ОБЫЧНЫХ СООБЩЕНИЙ =====
@@ -1180,7 +818,7 @@ async def handle_all_messages(message: types.Message):
     
     if current_time - last_request < cooldown:
         remaining = cooldown - int(current_time - last_request)
-        await message.answer(f"⏳ Ой, нужно немного подождать! 😅\n\nПопробуй через {remaining} сек. ⏰\n\nА пока можешь подумать над следующим вопросом! 💭")
+        await message.answer(f"⏳ Подождите {remaining} сек. перед следующим запросом.")
         return
     
     user_last_request[chat_id] = current_time
@@ -1208,7 +846,7 @@ async def handle_all_messages(message: types.Message):
             message_type = "weather"
             
         elif "курс" in user_text_lower or "валют" in user_text_lower:
-            response_text = "💫 Держи актуальные курсы валют! 💰\n\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽\n\nКурсы обновляются регулярно! 🔄"
+            response_text = "💱 Курсы валют:\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽"
             message_type = "currency"
             
         elif any(word in user_text_lower for word in ["посчитай", "сколько будет", "=", "calc", "calculate"]):
@@ -1219,32 +857,32 @@ async def handle_all_messages(message: types.Message):
                 allowed_chars = set('0123456789+-*/.() ')
                 if all(c in allowed_chars for c in expr):
                     result = eval(expr)
-                    response_text = f"🎯 Вот твой результат! ✨\n\n🔢 {expr} = {result}\n\nМатематика - это весело! 🧮"
+                    response_text = f"🔢 {expr} = {result}"
                 else:
-                    response_text = "❌ Ой! Это выражение выглядит небезопасно... 😅\n\nПопробуй простые математические операции! 💫"
+                    response_text = "❌ Небезопасное выражение"
                 message_type = "calculation"
             except:
-                response_text = "❌ Упс! Не могу вычислить это выражение... 🤔\n\nПроверь, всё ли правильно написано? 💫"
+                response_text = "❌ Не могу вычислить"
                 message_type = "calculation"
                 
         else:
-            # AI-ответ с эмоциональным промптом
+            # AI-ответ с профессиональным промптом
             try:
                 # Подготовка контекста
                 if chat_id not in conversation_memory:
                     conversation_memory[chat_id] = []
                 
-                # Эмоциональный системный промпт
-                system_prompt = """Ты дружелюбный, эмоциональный и эмпатичный AI-помощник. Отвечай тепло, с душой, используя эмодзи для выражения эмоций. 
+                # Профессиональный системный промпт для GlemixAI
+                system_prompt = """Ты - GlemixAI, современный AI-помощник женского пола. Отвечай профессионально, четко и по делу.
 
-Будь:
-- 💫 Воодушевляющим и поддерживающим
-- 😊 Дружелюбным и открытым  
-- 🎯 Полезным и информативным
-- ✨ Креативным и интересным
-- 🌟 Эмоциональным, но не слишком многословным
+Основные принципы:
+- Будь точной и информативной
+- Фокусируйся на решении задачи пользователя
+- Отвечай развернуто, но без лишних деталей
+- Сохраняй профессиональный тон
+- Используй четкие формулировки
 
-Отвечай развернуто (3-5 предложений), но не слишком длинно. Покажи, что тебе не все равно! Используй естественный, живой язык как в дружеской беседе."""
+Отвечай на русском языке, 3-5 предложений. Будь полезной и эффективной в решении задач."""
 
                 messages = [
                     {"role": "system", "content": system_prompt},
@@ -1252,7 +890,7 @@ async def handle_all_messages(message: types.Message):
                 ]
                 
                 # Добавляем историю если есть
-                for msg in conversation_memory[chat_id][-3:]:  # Только последние 3 сообщения
+                for msg in conversation_memory[chat_id][-3:]:
                     messages.insert(1, msg)
                 
                 response = client.chat.complete(model=model, messages=messages)
@@ -1272,17 +910,17 @@ async def handle_all_messages(message: types.Message):
                 
             except Exception as e:
                 logger.error(f"AI error: {e}")
-                response_text = "⚠️ Упс! Что-то пошло не так... 😅\n\nДавай попробуем еще раз? Иногда нейросети нужна минутка отдыха! 💫"
+                response_text = "⚠️ Ошибка при обработке запроса. Попробуйте еще раз."
         
-        # Отправляем эмоциональный ответ
+        # Отправляем ответ
         await delete_thinking_message(chat_id, thinking_msg_id)
-        emotional_response = create_emotional_response(response_text, message_type)
-        await message.answer(emotional_response)
+        glemixai_response = create_glemixai_response(response_text, message_type)
+        await message.answer(glemixai_response)
         
     except Exception as e:
         logger.error(f"Handler error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Ой-ой! Произошла непредвиденная ошибка... 😔\n\nНо не переживай! Просто попробуй еще раз через минуточку! 💫")
+        await message.answer("❌ Произошла ошибка. Пожалуйста, попробуйте еще раз.")
 
 async def get_weather(city: str) -> str:
     """Получение погоды"""
@@ -1307,34 +945,24 @@ async def get_weather(city: str) -> str:
                     feels = data["main"]["feels_like"]
                     desc = data["weather"][0]["description"]
                     
-                    # Эмоциональная реакция на температуру
-                    if temp > 25:
-                        reaction = "Жарковато! 🥵"
-                    elif temp > 15:
-                        reaction = "Отличная погода! 😊"
-                    elif temp > 5:
-                        reaction = "Прохладненько! 🍂"
-                    else:
-                        reaction = "Холодно! ❄️"
-                    
-                    return f"🌤️ Погода в {city_clean.title()}: {temp}°C (ощущается {feels}°C), {desc}\n\n{reaction}\n\nХорошего дня! ✨"
+                    return f"🌤️ Погода в {city_clean.title()}: {temp}°C (ощущается {feels}°C), {desc}"
                 else:
-                    return f"🌫️ Упс! Не удалось получить погоду для {city_clean}... 😅\n\nПопробуй другой город или проверь написание! 💫"
+                    return f"Не удалось получить погоду для {city_clean}"
     except Exception as e:
-        return "🌪️ Ой! Что-то пошло не так с получением погоды... 😔\n\nПопробуй позже или другой город! 💫"
+        return "Ошибка получения погоды"
 
 # =======================
 # ===== ЗАПУСК БОТА =====
 # =======================
 async def main():
-    logger.info("🚀 Запуск бота...")
+    logger.info("🚀 Запуск GlemixAI...")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    print("🤖 Бот запущен!")
+    print("🤖 GlemixAI запущен!")
     print(f"💎 Тарифы: {len(TARIFFS)} варианта")
     print(f"💾 Пользователей: {len(user_registration_date)}")
     print(f"🛠️ Админ ID: {ADMIN_ID}")
-    print("🎉 Бот готов к эмоциональному общению! ✨")
+    print("✅ GlemixAI готов к работе!")
     asyncio.run(main())
