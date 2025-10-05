@@ -289,6 +289,64 @@ def can_user_make_request(chat_id: int) -> tuple[bool, str]:
     return True, ""
 
 # =======================
+# ===== УЛУЧШЕННАЯ ОБРАБОТКА ДОКУМЕНТОВ =====
+# =======================
+async def process_document_content(file_content: str, filename: str) -> str:
+    """Обрабатывает содержимое документа и создает профессиональный ответ"""
+    
+    # Профессиональный системный промпт для обработки заданий
+    system_prompt = """Ты - GlemixAI, современный AI-помощник женского пола. Ты получаешь учебные задания, документы и материалы от пользователей.
+
+Твоя задача - профессионально проанализировать полученный материал и:
+1. Понять суть задания/документа
+2. Выявить ключевые моменты
+3. Предложить помощь в решении/анализе
+4. Дать полезные рекомендации
+
+Отвечай четко, по делу, на русском языке. Будь полезной в решении учебных задач."""
+
+    try:
+        # Подготовка контекста для AI
+        user_message = f"Пользователь отправил документ: {filename}\n\nСодержимое документа:\n{file_content}\n\nПожалуйста, проанализируй этот материал и предложи помощь."
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+        
+        response = client.chat.complete(model=model, messages=messages)
+        analysis_result = response.choices[0].message.content
+        
+        return analysis_result
+        
+    except Exception as e:
+        logger.error(f"Document processing error: {e}")
+        return f"Получила ваш документ '{filename}'. Готова помочь с анализом и решением задания. Что конкретно вас интересует в этом материале?"
+
+async def extract_text_from_document(file_path: str) -> str:
+    """Извлекает текст из документа (базовая реализация)"""
+    try:
+        # Для текстовых файлов
+        if file_path.endswith('.txt'):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        
+        # Для изображений (заглушка - в реальности нужно использовать OCR)
+        elif file_path.endswith(('.png', '.jpg', '.jpeg')):
+            return "[Изображение] Текст требует распознавания через OCR"
+        
+        # Для PDF (заглушка)
+        elif file_path.endswith('.pdf'):
+            return "[PDF документ] Содержимое требует специальной обработки"
+        
+        else:
+            return f"[Документ типа {file_path.split('.')[-1]}] Требуется специальная обработка"
+            
+    except Exception as e:
+        logger.error(f"Text extraction error: {e}")
+        return f"Ошибка извлечения текста: {e}"
+
+# =======================
 # ===== АДМИН ПАНЕЛЬ =====
 # =======================
 def add_admin_log(action: str, admin_id: int = ADMIN_ID, target_user: Optional[int] = None):
@@ -449,6 +507,8 @@ def create_glemixai_response(text: str, message_type: str = "normal") -> str:
         intros = ["Текст с изображения:", "Распознанный текст:", "Вот что удалось прочитать:"]
     elif message_type == "voice":
         intros = ["Вот ответ на ваш вопрос:", "Отвечаю на ваш запрос:", "По вашему вопросу:"]
+    elif message_type == "document":
+        intros = ["Проанализировала ваш документ:", "Вот анализ материала:", "По вашему заданию:"]
     else:
         intros = [
             "Вот что я могу сказать:",
@@ -629,6 +689,67 @@ async def cmd_start(message: types.Message):
     welcome_text += "Выберите действие:"
 
     await message.answer(welcome_text, reply_markup=get_main_keyboard(chat_id))
+
+# =======================
+# ===== ОБРАБОТКА ДОКУМЕНТОВ =====
+# =======================
+@dp.message(F.document)
+async def handle_document(message: types.Message):
+    """Обработка документов (заданий, текстовых файлов и т.д.)"""
+    chat_id = message.chat.id
+    
+    # Проверка возможности сделать запрос
+    can_request, error_msg = can_user_make_request(chat_id)
+    if not can_request:
+        await message.answer(error_msg)
+        return
+    
+    thinking_msg_id = await send_thinking_message(chat_id)
+    
+    try:
+        document = message.document
+        filename = document.file_name or "unknown"
+        file_size = document.file_size or 0
+        
+        # Проверяем размер файла (максимум 20MB)
+        if file_size > 20 * 1024 * 1024:
+            await delete_thinking_message(chat_id, thinking_msg_id)
+            await message.answer("❌ Файл слишком большой. Максимальный размер - 20MB.")
+            return
+        
+        # Скачиваем файл
+        file_info = await bot.get_file(document.file_id)
+        downloaded_file = await bot.download_file(file_info.file_path)
+        
+        # Сохраняем временно
+        temp_path = f"temp_{chat_id}_{filename}"
+        with open(temp_path, 'wb') as f:
+            f.write(downloaded_file.read())
+        
+        # Извлекаем текст из документа
+        file_content = await extract_text_from_document(temp_path)
+        
+        # Очищаем временный файл
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+        
+        # Обрабатываем содержимое
+        analysis_result = await process_document_content(file_content, filename)
+        
+        # Обновляем счетчики
+        increment_daily_requests(chat_id)
+        
+        # Отправляем ответ
+        await delete_thinking_message(chat_id, thinking_msg_id)
+        response = create_glemixai_response(analysis_result, "document")
+        await message.answer(response)
+        
+    except Exception as e:
+        logger.error(f"Document processing error: {e}")
+        await delete_thinking_message(chat_id, thinking_msg_id)
+        await message.answer("📄 Получила ваш документ! Готова помочь с анализом и решением задания. Что конкретно вас интересует?")
 
 # =======================
 # ===== ОБРАБОТКА АДМИН КНОПОК =====
