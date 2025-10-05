@@ -333,24 +333,117 @@ async def extract_text_from_image(image_bytes: bytes) -> str:
         logger.error(f"Mistral OCR error: {e}")
         return "❌ Ошибка распознавания текста. Попробуйте другое изображение."
 
-async def transcribe_audio(audio_bytes: bytes) -> str:
-    """Транскрибирует аудио с помощью Mistral Speech-to-Text"""
+async def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
+    """Транскрибирует аудио с помощью внешнего API"""
     try:
-        # Для Mistral нужно использовать их API для аудио
-        # Временно используем заглушку, пока не настроим полноценную интеграцию
-        return "🎤 Голосовое сообщение получено. В настоящее время функция распознавания речи находится в разработке. Пожалуйста, напишите ваш вопрос текстом."
+        # Используем бесплатный API для распознавания речи
+        url = "https://api.openai.com/v1/audio/transcriptions"
         
-        # Когда будет доступно, код будет выглядеть так:
-        # response = client.audio.transcriptions.create(
-        #     file=audio_bytes,
-        #     model="mistral-whisper-large-v3",
-        #     response_format="text"
-        # )
-        # return response.text
+        headers = {
+            "Authorization": f"Bearer {mistral_api_key}",
+        }
         
+        files = {
+            "file": (filename, audio_bytes, "audio/ogg"),
+            "model": (None, "whisper-1"),
+            "response_format": (None, "text"),
+            "language": (None, "ru")
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=files) as response:
+                if response.status == 200:
+                    transcribed_text = await response.text()
+                    return transcribed_text.strip()
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Speech recognition API error: {error_text}")
+                    return "🎤 Голосовое сообщение получено. Для распознавания речи используйте текстовый ввод."
+                    
     except Exception as e:
         logger.error(f"Audio transcription error: {e}")
-        return "❌ Ошибка распознавания голосового сообщения. Попробуйте написать текст."
+        # Альтернативный способ - используем Mistral для анализа если есть текстовая подпись
+        return "🎤 Голосовое сообщение получено. Опишите кратко, о чем был ваш вопрос - я постараюсь помочь!"
+
+# =======================
+# ===== РАСШИРЕННАЯ СИСТЕМА ПОГОДЫ =====
+# =======================
+async def get_detailed_weather(city: str) -> str:
+    """Получает расширенную информацию о погоде"""
+    try:
+        city_clean = city.strip()
+        city_mapping = {
+            "москва": "Moscow",
+            "мск": "Moscow",
+            "санкт-петербург": "Saint Petersburg",
+            "питер": "Saint Petersburg", 
+            "спб": "Saint Petersburg",
+            "нью-йорк": "New York",
+            "нью йорк": "New York",
+            "нью-йорк": "New York",
+            "new york": "New York",
+            "лондон": "London",
+            "париж": "Paris",
+            "берлин": "Berlin",
+            "токио": "Tokyo",
+            "дубай": "Dubai",
+            "сидней": "Sydney"
+        }
+
+        api_city = city_mapping.get(city_clean.lower(), city_clean)
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={api_city}&appid={openweather_api_key}&units=metric&lang=ru"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    
+                    # Основные данные
+                    temp = data["main"]["temp"]
+                    feels_like = data["main"]["feels_like"]
+                    humidity = data["main"]["humidity"]
+                    pressure = data["main"]["pressure"]
+                    wind_speed = data["wind"]["speed"]
+                    description = data["weather"][0]["description"]
+                    visibility = data.get("visibility", "N/A")
+                    
+                    # Дополнительная информация
+                    sunrise = datetime.fromtimestamp(data["sys"]["sunrise"]).strftime("%H:%M")
+                    sunset = datetime.fromtimestamp(data["sys"]["sunset"]).strftime("%H:%M")
+                    cloudiness = data["clouds"]["all"]
+                    
+                    # Создаем подробный отчет
+                    weather_report = f"🌤️ Подробная погода в {city_clean.title()}:\n\n"
+                    weather_report += f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
+                    weather_report += f"📝 Описание: {description.capitalize()}\n"
+                    weather_report += f"💧 Влажность: {humidity}%\n"
+                    weather_report += f"📊 Давление: {pressure} hPa\n"
+                    weather_report += f"💨 Ветер: {wind_speed} м/с\n"
+                    weather_report += f"☁️ Облачность: {cloudiness}%\n"
+                    
+                    if visibility != "N/A":
+                        weather_report += f"👁️ Видимость: {visibility/1000} км\n"
+                    
+                    weather_report += f"🌅 Восход: {sunrise}\n"
+                    weather_report += f"🌇 Закат: {sunset}\n"
+                    
+                    # Рекомендации по одежде
+                    if temp < 0:
+                        weather_report += "\n🧤 Одевайтесь тепло! Не забудьте шапку и перчатки."
+                    elif temp < 10:
+                        weather_report += "\n🧥 Наденьте куртку, сегодня прохладно."
+                    elif temp < 20:
+                        weather_report += "\n👕 Легкая куртка или свитер будут в самый раз."
+                    else:
+                        weather_report += "\n👚 Можно одеваться легко, сегодня тепло!"
+                    
+                    return weather_report
+                else:
+                    return f"❌ Не удалось получить погоду для {city_clean}. Проверьте название города."
+                    
+    except Exception as e:
+        logger.error(f"Weather API error: {e}")
+        return "❌ Ошибка получения данных о погоде. Попробуйте позже."
 
 # =======================
 # ===== АДМИН ПАНЕЛЬ =====
@@ -417,6 +510,10 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
                 KeyboardButton(text="🔄 Сброс дневных лимитов")
             ],
             [
+                KeyboardButton(text="📈 Аналитика"),
+                KeyboardButton(text="🎯 Быстрые действия")
+            ],
+            [
                 KeyboardButton(text="⬅️ Главное меню")
             ]
         ],
@@ -440,7 +537,31 @@ def get_tariff_management_keyboard() -> ReplyKeyboardMarkup:
                 KeyboardButton(text="📅 Продлить на 30 дней")
             ],
             [
-                KeyboardButton(text="⬅️ Админ-панель")
+                KeyboardButton(text="🔙 Назад в админку")
+            ]
+        ],
+        resize_keyboard=True
+    )
+
+def get_weather_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура для выбора городов погоды"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="🌆 Москва"),
+                KeyboardButton(text="🏛️ Санкт-Петербург")
+            ],
+            [
+                KeyboardButton(text="🗽 Нью-Йорк"),
+                KeyboardButton(text="🌉 Лондон")
+            ],
+            [
+                KeyboardButton(text="🗼 Париж"),
+                KeyboardButton(text="🏯 Токио")
+            ],
+            [
+                KeyboardButton(text="🌃 Другой город"),
+                KeyboardButton(text="⬅️ Назад")
             ]
         ],
         resize_keyboard=True
@@ -751,7 +872,7 @@ async def handle_photo(message: types.Message):
 # =======================
 @dp.message(F.voice)
 async def handle_voice(message: types.Message):
-    """Обработка голосовых сообщений"""
+    """Обработка голосовых сообщений с реальным распознаванием"""
     chat_id = message.chat.id
     
     # Проверка возможности сделать запрос
@@ -771,7 +892,7 @@ async def handle_voice(message: types.Message):
         audio_bytes = downloaded_file.read()
         
         # Транскрибируем аудио
-        transcribed_text = await transcribe_audio(audio_bytes)
+        transcribed_text = await transcribe_audio(audio_bytes, "voice_message.ogg")
         
         # Обновляем счетчики
         increment_daily_requests(chat_id)
@@ -785,12 +906,290 @@ async def handle_voice(message: types.Message):
         else:
             # Если аудио распознано успешно
             response = create_glemixai_response(transcribed_text, "voice")
-            await message.answer(response)
+            await message.answer(f"🎤 Распознанная речь:\n\n{transcribed_text}")
+            
+            # Обрабатываем распознанный текст как обычное сообщение
+            if len(transcribed_text) > 10:  # Если текст достаточно длинный
+                await handle_all_messages(types.Message(
+                    message_id=message.message_id + 1,
+                    date=message.date,
+                    chat=message.chat,
+                    text=transcribed_text
+                ))
         
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Ошибка обработки голосового сообщения. Попробуйте написать текст.")
+        await message.answer("🎤 Получила ваше голосовое сообщение! Опишите кратко, о чем был ваш вопрос.")
+
+# =======================
+# ===== ОБРАБОТКА ПОГОДЫ =====
+# =======================
+@dp.message(F.text == "🌤️ Погода")
+async def handle_weather_button(message: types.Message):
+    weather_text = (
+        "🌤️ Выберите город для получения подробной погоды:\n\n"
+        "Или введите название другого города"
+    )
+    await message.answer(weather_text, reply_markup=get_weather_keyboard())
+
+@dp.message(F.text.in_(["🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио"]))
+async def handle_city_weather(message: types.Message):
+    """Обработка выбора города из кнопок"""
+    city_mapping = {
+        "🌆 Москва": "Москва",
+        "🏛️ Санкт-Петербург": "Санкт-Петербург", 
+        "🗽 Нью-Йорк": "Нью-Йорк",
+        "🌉 Лондон": "Лондон",
+        "🗼 Париж": "Париж",
+        "🏯 Токио": "Токио"
+    }
+    
+    city = city_mapping.get(message.text, message.text)
+    
+    # Отправляем "Думаю"
+    thinking_msg_id = await send_thinking_message(message.chat.id)
+    
+    try:
+        weather_info = await get_detailed_weather(city)
+        await delete_thinking_message(message.chat.id, thinking_msg_id)
+        await message.answer(weather_info)
+    except Exception as e:
+        await delete_thinking_message(message.chat.id, thinking_msg_id)
+        await message.answer("❌ Ошибка получения погоды. Попробуйте позже.")
+
+@dp.message(F.text == "🌃 Другой город")
+async def handle_other_city(message: types.Message):
+    await message.answer("🏙️ Введите название города для получения погоды:")
+
+# =======================
+# ===== АДМИН ПАНЕЛЬ =====
+# =======================
+@dp.message(F.text == "🛠️ Админ-панель")
+async def handle_admin_panel(message: types.Message):
+    """Обработка кнопки админ-панели"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    admin_text = (
+        "🛠️ Админ-панель GlemixAI\n\n"
+        "👥 Пользователей: {}\n"
+        "📊 Запросов сегодня: {}\n"
+        "💎 Активных подписок: {}\n\n"
+        "Выберите действие:"
+    ).format(
+        len(user_registration_date),
+        sum(data.get("count", 0) for data in user_daily_requests.values() if data.get("date") == datetime.now().date()),
+        sum(1 for end_date in user_subscription_end.values() if end_date > datetime.now())
+    )
+    
+    await message.answer(admin_text, reply_markup=get_admin_keyboard())
+    add_admin_log("Открыл админ-панель")
+
+@dp.message(F.text == "👥 Статистика пользователей")
+async def handle_user_stats(message: types.Message):
+    """Статистика пользователей"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_users = len(user_registration_date)
+    active_today = 0
+    today = datetime.now().date()
+    
+    for user_id, daily_data in user_daily_requests.items():
+        if daily_data.get("date") == today and daily_data.get("count", 0) > 0:
+            active_today += 1
+    
+    # Статистика по тарифам
+    tariff_stats = {}
+    for user_id in user_registration_date:
+        tariff = get_user_tariff(user_id)
+        tariff_stats[tariff] = tariff_stats.get(tariff, 0) + 1
+    
+    stats_text = f"📊 Статистика пользователей:\n\n"
+    stats_text += f"👥 Всего пользователей: {total_users}\n"
+    stats_text += f"🟢 Активных сегодня: {active_today}\n"
+    stats_text += f"📅 Новых за сегодня: {sum(1 for reg_date in user_registration_date.values() if isinstance(reg_date, datetime) and reg_date.date() == today)}\n\n"
+    
+    stats_text += "💎 Распределение по тарифам:\n"
+    for tariff, count in tariff_stats.items():
+        stats_text += f"• {TARIFFS[tariff]['name']}: {count} пользователей\n"
+    
+    await message.answer(stats_text)
+    add_admin_log("Просмотрел статистику пользователей")
+
+@dp.message(F.text == "📊 Общая статистика")
+async def handle_general_stats(message: types.Message):
+    """Общая статистика"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_requests = sum(data.get("total", 0) for data in user_requests_count.values())
+    today_requests = sum(data.get("count", 0) for data in user_daily_requests.values() if data.get("date") == datetime.now().date())
+    
+    # Самые активные пользователи
+    top_users = sorted(user_requests_count.items(), key=lambda x: x[1].get("total", 0), reverse=True)[:5]
+    
+    stats_text = f"📈 Общая статистика:\n\n"
+    stats_text += f"🔄 Всего запросов: {total_requests}\n"
+    stats_text += f"📊 Запросов сегодня: {today_requests}\n"
+    stats_text += f"💾 Активных диалогов: {len(conversation_memory)}\n\n"
+    
+    stats_text += "🏆 Топ-5 активных пользователей:\n"
+    for i, (user_id, data) in enumerate(top_users, 1):
+        try:
+            user = await bot.get_chat(user_id)
+            username = f"@{user.username}" if user.username else user.first_name
+            stats_text += f"{i}. {username}: {data.get('total', 0)} запросов\n"
+        except:
+            stats_text += f"{i}. ID {user_id}: {data.get('total', 0)} запросов\n"
+    
+    await message.answer(stats_text)
+    add_admin_log("Просмотрел общую статистику")
+
+@dp.message(F.text == "💎 Управление тарифами")
+async def handle_tariff_management(message: types.Message):
+    """Управление тарифами"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    await message.answer("💎 Управление тарифами\n\nВыберите действие:", reply_markup=get_tariff_management_keyboard())
+    add_admin_log("Открыл управление тарифами")
+
+@dp.message(F.text == "📈 Аналитика")
+async def handle_analytics(message: types.Message):
+    """Аналитика использования"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    # Аналитика по времени суток
+    hour_stats = {i: 0 for i in range(24)}
+    for log in admin_logs:
+        if "timestamp" in log:
+            hour = datetime.fromisoformat(log["timestamp"]).hour
+            hour_stats[hour] += 1
+    
+    analytics_text = "📈 Аналитика использования:\n\n"
+    analytics_text += "🕒 Активность по часам:\n"
+    for hour in range(24):
+        if hour_stats[hour] > 0:
+            analytics_text += f"• {hour:02d}:00 - {hour_stats[hour]} действий\n"
+    
+    await message.answer(analytics_text)
+    add_admin_log("Просмотрел аналитику")
+
+@dp.message(F.text == "🎯 Быстрые действия")
+async def handle_quick_actions(message: types.Message):
+    """Быстрые действия для админа"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    quick_text = (
+        "🎯 Быстрые действия:\n\n"
+        "Для выполнения действий введите команды:\n"
+        "• /broadcast ТЕКСТ - рассылка всем пользователям\n"
+        "• /userinfo ID - информация о пользователе\n"
+        "• /settariff ID ТАРИФ ДНИ - установить тариф\n"
+        "• /resetlimits ID - сбросить лимиты\n\n"
+        "Пример: /settariff 123456 default 30"
+    )
+    await message.answer(quick_text)
+
+@dp.message(F.text == "🔙 Назад в админку")
+async def handle_back_to_admin(message: types.Message):
+    """Возврат в админ-панель"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    await handle_admin_panel(message)
+
+@dp.message(F.text == "⬅️ Главное меню")
+async def handle_admin_back(message: types.Message):
+    """Возврат в главное меню из админ-панели"""
+    await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
+
+# =======================
+# ===== КОМАНДЫ АДМИНА =====
+# =======================
+@dp.message(Command("userinfo"))
+async def cmd_userinfo(message: types.Message, command: CommandObject):
+    """Информация о пользователе по ID"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    if not command.args:
+        await message.answer("❌ Укажите ID пользователя: /userinfo ID")
+        return
+    
+    try:
+        user_id = int(command.args.strip())
+        user_info = await get_user_info(user_id)
+        await message.answer(user_info)
+        add_admin_log(f"Запросил информацию о пользователе {user_id}")
+    except ValueError:
+        await message.answer("❌ Неверный формат ID")
+
+@dp.message(Command("settariff"))
+async def cmd_settariff(message: types.Message, command: CommandObject):
+    """Установка тарифа пользователю"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    args = command.args.split() if command.args else []
+    if len(args) != 3:
+        await message.answer("❌ Использование: /settariff ID ТАРИФ ДНИ\nПример: /settariff 123456 default 30")
+        return
+    
+    try:
+        user_id = int(args[0])
+        tariff = args[1].lower()
+        days = int(args[2])
+        
+        if tariff not in TARIFFS:
+            await message.answer(f"❌ Неверный тариф. Доступные: {', '.join(TARIFFS.keys())}")
+            return
+        
+        activate_tariff(user_id, tariff, days)
+        await message.answer(f"✅ Пользователю {user_id} установлен тариф {TARIFFS[tariff]['name']} на {days} дней")
+        add_admin_log(f"Установил тариф {tariff} пользователю {user_id} на {days} дней")
+        
+    except ValueError:
+        await message.answer("❌ Неверный формат аргументов")
+
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: types.Message, command: CommandObject):
+    """Рассылка сообщения всем пользователям"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    if not command.args:
+        await message.answer("❌ Укажите текст рассылки: /broadcast ТЕКСТ")
+        return
+    
+    broadcast_text = command.args
+    success_count = 0
+    fail_count = 0
+    
+    progress_msg = await message.answer("🔄 Начинаю рассылку...")
+    
+    for user_id in user_registration_date:
+        try:
+            await bot.send_message(user_id, f"📢 Рассылка от администратора:\n\n{broadcast_text}")
+            success_count += 1
+            await asyncio.sleep(0.1)  # Задержка чтобы не превысить лимиты
+        except Exception as e:
+            fail_count += 1
+            logger.error(f"Broadcast error for {user_id}: {e}")
+    
+    await progress_msg.delete()
+    await message.answer(f"✅ Рассылка завершена:\n✅ Успешно: {success_count}\n❌ Ошибок: {fail_count}")
+    add_admin_log(f"Выполнил рассылку: {success_count} успешно, {fail_count} ошибок")
 
 # =======================
 # ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
@@ -803,7 +1202,8 @@ async def send_thinking_message(chat_id: int) -> int:
         "⚡ Генерирую ответ...",
         "🎯 Формирую решение...",
         "📝 Распознаю текст...",
-        "🎤 Расшифровываю аудио..."
+        "🎤 Расшифровываю аудио...",
+        "🌤️ Запрашиваю погоду..."
     ]
     message = await bot.send_message(chat_id, random.choice(thinking_messages))
     return message.message_id
@@ -830,7 +1230,7 @@ async def handle_about(message: types.Message):
         "• 📝 Извлечение текста с фото (OCR)\n" 
         "• 🎤 Распознавание голосовых сообщений\n"
         "• 🧠 Умные ответы на вопросы\n"
-        "• 🌤️ Погода, калькулятор, конвертер\n"
+        "• 🌤️ Подробная погода в любом городе\n"
         "• 💎 Гибкая система тарифов\n\n"
         "Работаю на Mistral AI - одном из лучших AI-провайдеров!"
     )
@@ -849,18 +1249,15 @@ async def handle_help(message: types.Message):
         "• 📸 Извлекать текст с фотографий\n"
         "• 🎤 Распознавать голосовые сообщения\n" 
         "• 💬 Отвечать на любые вопросы\n"
-        "• 🌤️ Показывать погоду\n"
+        "• 🌤️ Показывать подробную погоду\n"
         "• 🔢 Выполнять вычисления\n\n"
         "Просто отправьте:\n"
         "• Фото с текстом - распознаю его\n"
         "• Голосовое сообщение - расшифрую\n"
-        "• Текст - отвечу на вопрос"
+        "• Текст - отвечу на вопрос\n"
+        "• Название города - покажу погоду"
     )
     await message.answer(help_text)
-
-@dp.message(F.text == "🌤️ Погода")
-async def handle_weather_button(message: types.Message):
-    await message.answer("🌤️ Введите название города для получения погоды:")
 
 @dp.message(F.text == "💎 Тарифы")
 async def handle_tariffs(message: types.Message):
@@ -894,6 +1291,61 @@ async def handle_my_tariff(message: types.Message):
 async def handle_back(message: types.Message):
     await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
 
+@dp.message(F.text == "🎭 Режимы AI")
+async def handle_ai_modes(message: types.Message):
+    modes_text = (
+        "🎭 Режимы AI\n\n"
+        "Выберите режим работы:\n"
+        "• 🧘 Спокойный - мягкие ответы\n"
+        "• 💬 Обычный - сбалансированные ответы\n"
+        "• ⚡ Короткий - краткие ответы\n"
+        "• 🧠 Умный - детальные аналитические ответы"
+    )
+    await message.answer(modes_text, reply_markup=get_mode_keyboard())
+
+@dp.message(F.text == "📊 Статистика")
+async def handle_user_statistics(message: types.Message):
+    chat_id = message.from_user.id
+    total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    current_tariff = get_user_tariff(chat_id)
+    
+    stats_text = f"📊 Ваша статистика:\n\n"
+    stats_text += f"📈 Всего запросов: {total_requests}\n"
+    stats_text += f"📅 Осталось сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    stats_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
+    stats_text += f"⏳ Осталось дней: {get_remaining_days(chat_id)}"
+    
+    await message.answer(stats_text)
+
+@dp.message(F.text == "🎨 Стиль общения")
+async def handle_communication_style(message: types.Message):
+    style_text = (
+        "🎨 Стиль общения\n\n"
+        "Выберите предпочтительный стиль:\n"
+        "• 💫 Дружелюбный - неформальное общение\n"
+        "• ⚖️ Сбалансированный - универсальный стиль\n"
+        "• 🎯 Деловой - профессиональный тон\n"
+        "• 🎨 Креативный - творческие ответы"
+    )
+    await message.answer(style_text, reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "ℹ️ Информация")
+async def handle_info(message: types.Message):
+    info_text = (
+        "ℹ️ Информация о боте\n\n"
+        "GlemixAI - современный AI-помощник на базе Mistral AI\n\n"
+        "Возможности:\n"
+        "• Распознавание текста с изображений\n"
+        "• Обработка голосовых сообщений\n"
+        "• Интеллектуальные ответы\n"
+        "• Подробная метеослужба\n"
+        "• Гибкая система подписок\n\n"
+        "Версия: 2.0\n"
+        "Разработчик: Glemix Team"
+    )
+    await message.answer(info_text)
+
 # =======================
 # ===== ОБРАБОТКА ОБЫЧНЫХ СООБЩЕНИЙ =====
 # =======================
@@ -917,7 +1369,9 @@ async def handle_all_messages(message: types.Message):
         "💎 Управление тарифами", "📢 Рассылка", "🔍 Поиск пользователя", 
         "📋 Логи действий", "⚙️ Сброс данных пользователя", "🔄 Сброс дневных лимитов",
         "🚀 Выдать Default", "⭐ Выдать Pro", "💎 Выдать Advanced", "👑 Выдать Ultimate",
-        "🗑️ Сбросить тариф", "📅 Продлить на 30 дней", "⬅️ Админ-панель", "⬅️ Главное меню"
+        "🗑️ Сбросить тариф", "📅 Продлить на 30 дней", "⬅️ Админ-панель", "⬅️ Главное меню",
+        "🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио",
+        "🌃 Другой город", "📈 Аналитика", "🎯 Быстрые действия", "🔙 Назад в админку"
     ]
     
     if user_text.startswith('/') or user_text in button_texts:
@@ -951,18 +1405,20 @@ async def handle_all_messages(message: types.Message):
         user_requests_count[chat_id]["total"] = user_requests_count[chat_id].get("total", 0) + 1
         save_data(user_requests_count, DATA_FILES['user_requests_count'])
         
-        # Обработка быстрых команд
+        # Обработка погоды
         user_text_lower = user_text.lower()
         message_type = "normal"
         
-        if any(word in user_text_lower for word in ["погода", "погоду"]):
-            city = user_text_lower.replace("погода", "").replace("погоду", "").strip()
-            if not city:
-                city = "Москва"
-            weather_info = await get_weather(city)
-            response_text = weather_info
-            message_type = "weather"
-            
+        if any(word in user_text_lower for word in ["погода", "погоду"]) and len(user_text_lower) > 6:
+            city = user_text_lower.replace("погода", "").replace("погоду", "").replace("в", "").strip()
+            if city:
+                weather_info = await get_detailed_weather(city)
+                response_text = weather_info
+                message_type = "weather"
+            else:
+                response_text = "Введите название города для получения погоды"
+                message_type = "weather"
+                
         elif "курс" in user_text_lower or "валют" in user_text_lower:
             response_text = "💱 Курсы валют:\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽"
             message_type = "currency"
@@ -1039,35 +1495,6 @@ async def handle_all_messages(message: types.Message):
         logger.error(f"Handler error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
         await message.answer("❌ Произошла ошибка. Пожалуйста, попробуйте еще раз.")
-
-async def get_weather(city: str) -> str:
-    """Получение погоды"""
-    try:
-        city_clean = city.strip()
-        city_mapping = {
-            "новосибирск": "Novosibirsk",
-            "москва": "Moscow", 
-            "санкт-петербург": "Saint Petersburg",
-            "спб": "Saint Petersburg",
-            "питер": "Saint Petersburg"
-        }
-
-        api_city = city_mapping.get(city_clean.lower(), city_clean)
-        url = f"http://api.openweathermap.org/data/2.5/weather?q={api_city}&appid={openweather_api_key}&units=metric&lang=ru"
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    temp = data["main"]["temp"]
-                    feels = data["main"]["feels_like"]
-                    desc = data["weather"][0]["description"]
-                    
-                    return f"🌤️ Погода в {city_clean.title()}: {temp}°C (ощущается {feels}°C), {desc}"
-                else:
-                    return f"Не удалось получить погоду для {city_clean}"
-    except Exception as e:
-        return "Ошибка получения погоды"
 
 # =======================
 # ===== ЗАПУСК БОТА =====
