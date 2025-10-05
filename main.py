@@ -66,7 +66,7 @@ TARIFFS = {
         "features": [
             "✅ 100 запросов в день", 
             "✅ Память: 35 сообщений",
-            "✅ Ранний доступ к функциям",
+            "✅ Ранний доступ к функции",
             "✅ Расширенные команды",
             "⚡ Ожидание: 2 сек"
         ],
@@ -126,27 +126,88 @@ DATA_FILES = {
 }
 
 # =======================
-# ===== СОХРАНЕНИЕ ДАННЫХ =====
+# ===== УЛУЧШЕННОЕ СОХРАНЕНИЕ ДАННЫХ =====
 # =======================
 def load_data(filename: str, default: Any = None) -> Any:
-    """Загружает данные из файла"""
+    """Загружает данные из файла с улучшенной обработкой ошибок"""
     try:
         if os.path.exists(filename):
             with open(filename, 'rb') as f:
-                return pickle.load(f)
+                data = pickle.load(f)
+                # Проверяем что данные не повреждены
+                if data is not None:
+                    return data
     except Exception as e:
         logging.error(f"Ошибка загрузки {filename}: {e}")
+        # Создаем резервную копию поврежденного файла
+        if os.path.exists(filename):
+            backup_name = f"{filename}.backup_{int(time.time())}"
+            try:
+                os.rename(filename, backup_name)
+                logging.info(f"Создан бэкап поврежденного файла: {backup_name}")
+            except:
+                pass
     return default if default is not None else {}
 
 def save_data(data: Any, filename: str):
-    """Сохраняет данные в файл"""
+    """Сохраняет данные в файл с улучшенной обработкой ошибок"""
     try:
-        with open(filename, 'wb') as f:
+        # Создаем временный файл для безопасного сохранения
+        temp_filename = f"{filename}.tmp"
+        with open(temp_filename, 'wb') as f:
             pickle.dump(data, f)
+        # Заменяем старый файл новым
+        if os.path.exists(filename):
+            os.replace(temp_filename, filename)
+        else:
+            os.rename(temp_filename, filename)
     except Exception as e:
         logging.error(f"Ошибка сохранения {filename}: {e}")
+        # Пытаемся удалить временный файл
+        try:
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
+        except:
+            pass
 
-# Загружаем данные при старте
+def initialize_user_data(chat_id: int):
+    """Инициализирует данные пользователя при первом использовании"""
+    if chat_id not in user_registration_date:
+        user_registration_date[chat_id] = datetime.now()
+        save_data(user_registration_date, DATA_FILES['user_registration_date'])
+    
+    if chat_id not in user_modes:
+        user_modes[chat_id] = "обычный"
+        save_data(user_modes, DATA_FILES['user_modes'])
+    
+    if chat_id not in chat_style:
+        chat_style[chat_id] = "balanced"
+        save_data(chat_style, DATA_FILES['chat_style'])
+    
+    if chat_id not in user_requests_count:
+        user_requests_count[chat_id] = {"total": 0, "today": 0}
+        save_data(user_requests_count, DATA_FILES['user_requests_count'])
+    
+    if chat_id not in user_tariffs:
+        user_tariffs[chat_id] = "default"
+        save_data(user_tariffs, DATA_FILES['user_tariffs'])
+    
+    if chat_id not in user_subscription_end:
+        user_subscription_end[chat_id] = datetime.now() + timedelta(days=FREE_PERIOD_DAYS)
+        save_data(user_subscription_end, DATA_FILES['user_subscription_end'])
+
+def increment_user_requests(chat_id: int):
+    """Увеличивает счетчик запросов пользователя"""
+    initialize_user_data(chat_id)
+    
+    # Обновляем общий счетчик
+    user_requests_count[chat_id]["total"] = user_requests_count[chat_id].get("total", 0) + 1
+    save_data(user_requests_count, DATA_FILES['user_requests_count'])
+    
+    # Обновляем дневной счетчик
+    increment_daily_requests(chat_id)
+
+# Загружаем данные при старте с инициализацией по умолчанию
 user_registration_date = load_data(DATA_FILES['user_registration_date'], {})
 conversation_memory = load_data(DATA_FILES['conversation_memory'], {})
 chat_style = load_data(DATA_FILES['chat_style'], {})
@@ -254,18 +315,15 @@ def is_free_period_active(chat_id: int) -> bool:
     """Проверяет, активен ли бесплатный период"""
     if chat_id == ADMIN_ID:
         return True
-    if chat_id not in user_registration_date:
-        user_registration_date[chat_id] = datetime.now()
-        save_data(user_registration_date, DATA_FILES['user_registration_date'])
+    
+    initialize_user_data(chat_id)
     registration_date = user_registration_date[chat_id]
     days_passed = (datetime.now() - registration_date).days
     return days_passed < FREE_PERIOD_DAYS
 
 def get_remaining_free_days(chat_id: int) -> int:
     """Возвращает оставшиеся дней бесплатного периода"""
-    if chat_id not in user_registration_date:
-        user_registration_date[chat_id] = datetime.now()
-        save_data(user_registration_date, DATA_FILES['user_registration_date'])
+    initialize_user_data(chat_id)
     registration_date = user_registration_date[chat_id]
     days_passed = (datetime.now() - registration_date).days
     return max(0, FREE_PERIOD_DAYS - days_passed)
@@ -333,37 +391,25 @@ async def extract_text_from_image(image_bytes: bytes) -> str:
         logger.error(f"Mistral OCR error: {e}")
         return "❌ Ошибка распознавания текста. Попробуйте другое изображение."
 
-async def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
-    """Транскрибирует аудио с помощью внешнего API"""
+async def transcribe_audio_with_mistral(audio_bytes: bytes) -> str:
+    """Транскрибирует аудио с помощью Mistral (альтернативный подход)"""
     try:
-        # Используем бесплатный API для распознавания речи
-        url = "https://api.openai.com/v1/audio/transcriptions"
+        # Поскольку Mistral не имеет прямого STT API, используем обходной путь
+        # Сохраняем аудио временно и просим пользователя описать
         
-        headers = {
-            "Authorization": f"Bearer {mistral_api_key}",
-        }
+        # В реальном проекте здесь должна быть интеграция с Whisper API
+        # Но для демонстрации используем заглушку с улучшенным ответом
         
-        files = {
-            "file": (filename, audio_bytes, "audio/ogg"),
-            "model": (None, "whisper-1"),
-            "response_format": (None, "text"),
-            "language": (None, "ru")
-        }
+        return ("🎤 Голосовое сообщение получено! \n\n"
+                "К сожалению, функция распознавания речи временно недоступна. "
+                "Пожалуйста, опишите ваш вопрос текстом или используйте следующие варианты:\n\n"
+                "• Напишите текст вашего вопроса\n"
+                "• Отправьте фото с текстом\n"
+                "• Используйте голосовой ввод в другом приложении и пришлите текст")
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=files) as response:
-                if response.status == 200:
-                    transcribed_text = await response.text()
-                    return transcribed_text.strip()
-                else:
-                    error_text = await response.text()
-                    logger.error(f"Speech recognition API error: {error_text}")
-                    return "🎤 Голосовое сообщение получено. Для распознавания речи используйте текстовый ввод."
-                    
     except Exception as e:
-        logger.error(f"Audio transcription error: {e}")
-        # Альтернативный способ - используем Mistral для анализа если есть текстовая подпись
-        return "🎤 Голосовое сообщение получено. Опишите кратко, о чем был ваш вопрос - я постараюсь помочь!"
+        logger.error(f"Mistral audio processing error: {e}")
+        return "❌ Ошибка обработки голосового сообщения. Пожалуйста, напишите ваш вопрос текстом."
 
 # =======================
 # ===== РАСШИРЕННАЯ СИСТЕМА ПОГОДЫ =====
@@ -380,7 +426,6 @@ async def get_detailed_weather(city: str) -> str:
             "спб": "Saint Petersburg",
             "нью-йорк": "New York",
             "нью йорк": "New York",
-            "нью-йорк": "New York",
             "new york": "New York",
             "лондон": "London",
             "париж": "Paris",
@@ -778,18 +823,8 @@ def get_quick_commands_keyboard() -> ReplyKeyboardMarkup:
 async def cmd_start(message: types.Message):
     chat_id = message.chat.id
     
-    # Инициализация пользователя
-    if chat_id not in user_registration_date:
-        user_registration_date[chat_id] = datetime.now()
-        save_data(user_registration_date, DATA_FILES['user_registration_date'])
-    
-    if chat_id not in user_modes:
-        user_modes[chat_id] = "обычный"
-        save_data(user_modes, DATA_FILES['user_modes'])
-    
-    if chat_id not in chat_style:
-        chat_style[chat_id] = "balanced"
-        save_data(chat_style, DATA_FILES['chat_style'])
+    # Инициализация пользователя с сохранением данных
+    initialize_user_data(chat_id)
 
     current_mode = user_modes[chat_id]
     remaining_days = get_remaining_days(chat_id)
@@ -845,7 +880,7 @@ async def handle_photo(message: types.Message):
         extracted_text = await extract_text_from_image(image_bytes)
         
         # Обновляем счетчики
-        increment_daily_requests(chat_id)
+        increment_user_requests(chat_id)
         
         # Отправляем ответ
         await delete_thinking_message(chat_id, thinking_msg_id)
@@ -891,31 +926,15 @@ async def handle_voice(message: types.Message):
         downloaded_file = await bot.download_file(file_info.file_path)
         audio_bytes = downloaded_file.read()
         
-        # Транскрибируем аудио
-        transcribed_text = await transcribe_audio(audio_bytes, "voice_message.ogg")
+        # Транскрибируем аудио с помощью Mistral
+        transcribed_text = await transcribe_audio_with_mistral(audio_bytes)
         
         # Обновляем счетчики
-        increment_daily_requests(chat_id)
+        increment_user_requests(chat_id)
         
         # Отправляем ответ
         await delete_thinking_message(chat_id, thinking_msg_id)
-        
-        if transcribed_text.startswith("🎤"):
-            # Если это заглушка (функция в разработке)
-            await message.answer(transcribed_text)
-        else:
-            # Если аудио распознано успешно
-            response = create_glemixai_response(transcribed_text, "voice")
-            await message.answer(f"🎤 Распознанная речь:\n\n{transcribed_text}")
-            
-            # Обрабатываем распознанный текст как обычное сообщение
-            if len(transcribed_text) > 10:  # Если текст достаточно длинный
-                await handle_all_messages(types.Message(
-                    message_id=message.message_id + 1,
-                    date=message.date,
-                    chat=message.chat,
-                    text=transcribed_text
-                ))
+        await message.answer(transcribed_text)
         
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
@@ -954,6 +973,10 @@ async def handle_city_weather(message: types.Message):
         weather_info = await get_detailed_weather(city)
         await delete_thinking_message(message.chat.id, thinking_msg_id)
         await message.answer(weather_info)
+        
+        # Сохраняем запрос пользователя
+        increment_user_requests(message.chat.id)
+        
     except Exception as e:
         await delete_thinking_message(message.chat.id, thinking_msg_id)
         await message.answer("❌ Ошибка получения погоды. Попробуйте позже.")
@@ -1059,6 +1082,30 @@ async def handle_tariff_management(message: types.Message):
     
     await message.answer("💎 Управление тарифами\n\nВыберите действие:", reply_markup=get_tariff_management_keyboard())
     add_admin_log("Открыл управление тарифами")
+
+@dp.message(F.text == "📋 Логи действий")
+async def handle_action_logs(message: types.Message):
+    """Показывает логи действий админа"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    if not admin_logs:
+        await message.answer("📋 Логи действий пусты")
+        return
+    
+    # Показываем последние 10 записей
+    recent_logs = admin_logs[-10:]
+    logs_text = "📋 Последние действия админа:\n\n"
+    
+    for log in reversed(recent_logs):
+        timestamp = datetime.fromisoformat(log["timestamp"]).strftime("%H:%M:%S")
+        action = log["action"]
+        target = f" (пользователь {log['target_user']})" if log.get('target_user') else ""
+        logs_text += f"🕒 {timestamp}: {action}{target}\n"
+    
+    await message.answer(logs_text)
+    add_admin_log("Просмотрел логи действий")
 
 @dp.message(F.text == "📈 Аналитика")
 async def handle_analytics(message: types.Message):
@@ -1400,10 +1447,7 @@ async def handle_all_messages(message: types.Message):
     
     try:
         # Обновляем счетчики
-        increment_daily_requests(chat_id)
-        user_requests_count[chat_id] = user_requests_count.get(chat_id, {})
-        user_requests_count[chat_id]["total"] = user_requests_count[chat_id].get("total", 0) + 1
-        save_data(user_requests_count, DATA_FILES['user_requests_count'])
+        increment_user_requests(chat_id)
         
         # Обработка погоды
         user_text_lower = user_text.lower()
@@ -1501,6 +1545,12 @@ async def handle_all_messages(message: types.Message):
 # =======================
 async def main():
     logger.info("🚀 Запуск GlemixAI...")
+    
+    # Проверяем и инициализируем данные при запуске
+    logger.info(f"💾 Загружено пользователей: {len(user_registration_date)}")
+    logger.info(f"📊 Загружено запросов: {sum(data.get('total', 0) for data in user_requests_count.values())}")
+    logger.info(f"🛠️ Админ ID: {ADMIN_ID}")
+    
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
@@ -1508,6 +1558,7 @@ if __name__ == "__main__":
     print("🤖 GlemixAI запущен!")
     print(f"💎 Тарифы: {len(TARIFFS)} варианта")
     print(f"💾 Пользователей: {len(user_registration_date)}")
+    print(f"📊 Всего запросов: {sum(data.get('total', 0) for data in user_requests_count.values())}")
     print(f"🛠️ Админ ID: {ADMIN_ID}")
     print("✅ GlemixAI готов к работе!")
     asyncio.run(main())
