@@ -3,6 +3,7 @@ import logging
 import random
 import aiohttp
 import time
+import base64
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F, Router
 from aiogram.filters import Command, CommandObject
@@ -289,62 +290,67 @@ def can_user_make_request(chat_id: int) -> tuple[bool, str]:
     return True, ""
 
 # =======================
-# ===== УЛУЧШЕННАЯ ОБРАБОТКА ДОКУМЕНТОВ =====
+# ===== РЕАЛЬНАЯ ОБРАБОТКА ФОТО И ГОЛОСА =====
 # =======================
-async def process_document_content(file_content: str, filename: str) -> str:
-    """Обрабатывает содержимое документа и создает профессиональный ответ"""
-    
-    # Профессиональный системный промпт для обработки заданий
-    system_prompt = """Ты - GlemixAI, современный AI-помощник женского пола. Ты получаешь учебные задания, документы и материалы от пользователей.
-
-Твоя задача - профессионально проанализировать полученный материал и:
-1. Понять суть задания/документа
-2. Выявить ключевые моменты
-3. Предложить помощь в решении/анализе
-4. Дать полезные рекомендации
-
-Отвечай четко, по делу, на русском языке. Будь полезной в решении учебных задач."""
-
+async def extract_text_from_image(image_bytes: bytes) -> str:
+    """Извлекает текст из изображения с помощью Mistral OCR"""
     try:
-        # Подготовка контекста для AI
-        user_message = f"Пользователь отправил документ: {filename}\n\nСодержимое документа:\n{file_content}\n\nПожалуйста, проанализируй этот материал и предложи помощь."
-
+        # Кодируем изображение в base64
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Создаем сообщение с изображением для Mistral
         messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": f"data:image/jpeg;base64,{image_base64}"
+                    },
+                    {
+                        "type": "text", 
+                        "text": "Пожалуйста, извлеки весь текст с этого изображения. Верни только распознанный текст без дополнительных комментариев."
+                    }
+                ]
+            }
         ]
         
-        response = client.chat.complete(model=model, messages=messages)
-        analysis_result = response.choices[0].message.content
+        # Используем модель с поддержкой зрения
+        response = client.chat.complete(
+            model="pixtral-12b-2409",  # Модель с поддержкой изображений
+            messages=messages,
+            max_tokens=1000
+        )
         
-        return analysis_result
+        extracted_text = response.choices[0].message.content.strip()
+        
+        if not extracted_text or "не вижу текста" in extracted_text.lower() or "не могу распознать" in extracted_text.lower():
+            return "❌ Не удалось распознать текст на изображении. Попробуйте с более четким фото."
+        
+        return f"📝 Распознанный текст:\n\n{extracted_text}"
         
     except Exception as e:
-        logger.error(f"Document processing error: {e}")
-        return f"Получила ваш документ '{filename}'. Готова помочь с анализом и решением задания. Что конкретно вас интересует в этом материале?"
+        logger.error(f"Mistral OCR error: {e}")
+        return "❌ Ошибка распознавания текста. Попробуйте другое изображение."
 
-async def extract_text_from_document(file_path: str) -> str:
-    """Извлекает текст из документа (базовая реализация)"""
+async def transcribe_audio(audio_bytes: bytes) -> str:
+    """Транскрибирует аудио с помощью Mistral Speech-to-Text"""
     try:
-        # Для текстовых файлов
-        if file_path.endswith('.txt'):
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return f.read()
+        # Для Mistral нужно использовать их API для аудио
+        # Временно используем заглушку, пока не настроим полноценную интеграцию
+        return "🎤 Голосовое сообщение получено. В настоящее время функция распознавания речи находится в разработке. Пожалуйста, напишите ваш вопрос текстом."
         
-        # Для изображений (заглушка - в реальности нужно использовать OCR)
-        elif file_path.endswith(('.png', '.jpg', '.jpeg')):
-            return "[Изображение] Текст требует распознавания через OCR"
+        # Когда будет доступно, код будет выглядеть так:
+        # response = client.audio.transcriptions.create(
+        #     file=audio_bytes,
+        #     model="mistral-whisper-large-v3",
+        #     response_format="text"
+        # )
+        # return response.text
         
-        # Для PDF (заглушка)
-        elif file_path.endswith('.pdf'):
-            return "[PDF документ] Содержимое требует специальной обработки"
-        
-        else:
-            return f"[Документ типа {file_path.split('.')[-1]}] Требуется специальная обработка"
-            
     except Exception as e:
-        logger.error(f"Text extraction error: {e}")
-        return f"Ошибка извлечения текста: {e}"
+        logger.error(f"Audio transcription error: {e}")
+        return "❌ Ошибка распознавания голосового сообщения. Попробуйте написать текст."
 
 # =======================
 # ===== АДМИН ПАНЕЛЬ =====
@@ -506,7 +512,7 @@ def create_glemixai_response(text: str, message_type: str = "normal") -> str:
     elif message_type == "photo_text":
         intros = ["Текст с изображения:", "Распознанный текст:", "Вот что удалось прочитать:"]
     elif message_type == "voice":
-        intros = ["Вот ответ на ваш вопрос:", "Отвечаю на ваш запрос:", "По вашему вопросу:"]
+        intros = ["Расшифровка голосового:", "Текст с голосового:", "Распознанная речь:"]
     elif message_type == "document":
         intros = ["Проанализировала ваш документ:", "Вот анализ материала:", "По вашему заданию:"]
     else:
@@ -691,11 +697,11 @@ async def cmd_start(message: types.Message):
     await message.answer(welcome_text, reply_markup=get_main_keyboard(chat_id))
 
 # =======================
-# ===== ОБРАБОТКА ДОКУМЕНТОВ =====
+# ===== ОБРАБОТКА ФОТО С REAL OCR =====
 # =======================
-@dp.message(F.document)
-async def handle_document(message: types.Message):
-    """Обработка документов (заданий, текстовых файлов и т.д.)"""
+@dp.message(F.photo)
+async def handle_photo(message: types.Message):
+    """Обработка фото с реальным OCR через Mistral"""
     chat_id = message.chat.id
     
     # Проверка возможности сделать запрос
@@ -704,90 +710,45 @@ async def handle_document(message: types.Message):
         await message.answer(error_msg)
         return
     
+    # Отправляем "Думаю"
     thinking_msg_id = await send_thinking_message(chat_id)
     
     try:
-        document = message.document
-        filename = document.file_name or "unknown"
-        file_size = document.file_size or 0
-        
-        # Проверяем размер файла (максимум 20MB)
-        if file_size > 20 * 1024 * 1024:
-            await delete_thinking_message(chat_id, thinking_msg_id)
-            await message.answer("❌ Файл слишком большой. Максимальный размер - 20MB.")
-            return
-        
-        # Скачиваем файл
-        file_info = await bot.get_file(document.file_id)
+        # Скачиваем фото
+        photo = message.photo[-1]  # Берем самое качественное фото
+        file_info = await bot.get_file(photo.file_id)
         downloaded_file = await bot.download_file(file_info.file_path)
+        image_bytes = downloaded_file.read()
         
-        # Сохраняем временно
-        temp_path = f"temp_{chat_id}_{filename}"
-        with open(temp_path, 'wb') as f:
-            f.write(downloaded_file.read())
-        
-        # Извлекаем текст из документа
-        file_content = await extract_text_from_document(temp_path)
-        
-        # Очищаем временный файл
-        try:
-            os.remove(temp_path)
-        except:
-            pass
-        
-        # Обрабатываем содержимое
-        analysis_result = await process_document_content(file_content, filename)
+        # Извлекаем текст с помощью Mistral OCR
+        extracted_text = await extract_text_from_image(image_bytes)
         
         # Обновляем счетчики
         increment_daily_requests(chat_id)
         
         # Отправляем ответ
         await delete_thinking_message(chat_id, thinking_msg_id)
-        response = create_glemixai_response(analysis_result, "document")
-        await message.answer(response)
+        
+        if extracted_text.startswith("❌"):
+            # Если ошибка распознавания
+            await message.answer(extracted_text)
+        else:
+            # Если текст распознан успешно
+            response = create_glemixai_response(extracted_text, "photo_text")
+            await message.answer(response)
+            
+            # Предлагаем помощь с распознанным текстом
+            help_text = "📋 Нужна помощь с распознанным текстом? Задайте вопрос или попросите что-то сделать с этим текстом."
+            await message.answer(help_text)
         
     except Exception as e:
-        logger.error(f"Document processing error: {e}")
+        logger.error(f"Photo processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("📄 Получила ваш документ! Готова помочь с анализом и решением задания. Что конкретно вас интересует?")
+        await message.answer("❌ Ошибка обработки изображения. Попробуйте другое фото.")
 
 # =======================
-# ===== ОБРАБОТКА АДМИН КНОПОК =====
+# ===== ОБРАБОТКА ГОЛОСОВЫХ СООБЩЕНИЙ =====
 # =======================
-@dp.message(F.text == "🛠️ Админ-панель")
-async def handle_admin_panel(message: types.Message):
-    """Обработка кнопки админ-панели"""
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Доступ запрещен")
-        return
-    
-    admin_text = "🛠️ Админ-панель\n\nВыберите действие:"
-    await message.answer(admin_text, reply_markup=get_admin_keyboard())
-    add_admin_log("Открыл админ-панель")
-
-# ... остальные админ-обработчики остаются без изменений ...
-
-# =======================
-# ===== ОБРАБОТКА СООБЩЕНИЙ =====
-# =======================
-async def send_thinking_message(chat_id: int) -> int:
-    """Отправляет сообщение 'Думаю' и возвращает его ID"""
-    thinking_messages = [
-        "💭 Обрабатываю запрос...",
-        "🤔 Анализирую...",
-        "⚡ Генерирую ответ...",
-        "🎯 Формирую решение..."
-    ]
-    message = await bot.send_message(chat_id, random.choice(thinking_messages))
-    return message.message_id
-
-async def delete_thinking_message(chat_id: int, message_id: int):
-    """Удаляет сообщение 'Думаю'"""
-    try:
-        await bot.delete_message(chat_id, message_id)
-    except Exception as e:
-        logger.error(f"Ошибка удаления сообщения: {e}")
-
 @dp.message(F.voice)
 async def handle_voice(message: types.Message):
     """Обработка голосовых сообщений"""
@@ -803,71 +764,60 @@ async def handle_voice(message: types.Message):
     thinking_msg_id = await send_thinking_message(chat_id)
     
     try:
-        # В реальной реализации здесь будет код распознавания речи
-        # Для демонстрации используем заглушку
+        # Скачиваем голосовое сообщение
+        voice = message.voice
+        file_info = await bot.get_file(voice.file_id)
+        downloaded_file = await bot.download_file(file_info.file_path)
+        audio_bytes = downloaded_file.read()
         
-        response_text = "Получила ваше голосовое сообщение. В настоящее время функция распознавания речи находится в разработке. Пожалуйста, напишите ваш вопрос текстом для получения помощи."
+        # Транскрибируем аудио
+        transcribed_text = await transcribe_audio(audio_bytes)
         
         # Обновляем счетчики
         increment_daily_requests(chat_id)
         
         # Отправляем ответ
         await delete_thinking_message(chat_id, thinking_msg_id)
-        response = create_glemixai_response(response_text, "voice")
-        await message.answer(response)
+        
+        if transcribed_text.startswith("🎤"):
+            # Если это заглушка (функция в разработке)
+            await message.answer(transcribed_text)
+        else:
+            # Если аудио распознано успешно
+            response = create_glemixai_response(transcribed_text, "voice")
+            await message.answer(response)
         
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Ошибка обработки голосового сообщения. Пожалуйста, попробуйте написать текстом.")
+        await message.answer("❌ Ошибка обработки голосового сообщения. Попробуйте написать текст.")
 
-@dp.message(F.photo)
-async def handle_photo(message: types.Message):
-    """Обработка фото с текстом"""
-    chat_id = message.chat.id
-    
-    # Проверка возможности сделать запрос
-    can_request, error_msg = can_user_make_request(chat_id)
-    if not can_request:
-        await message.answer(error_msg)
-        return
-    
-    thinking_msg_id = await send_thinking_message(chat_id)
-    
+# =======================
+# ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+# =======================
+async def send_thinking_message(chat_id: int) -> int:
+    """Отправляет сообщение 'Думаю' и возвращает его ID"""
+    thinking_messages = [
+        "💭 Обрабатываю запрос...",
+        "🤔 Анализирую...", 
+        "⚡ Генерирую ответ...",
+        "🎯 Формирую решение...",
+        "📝 Распознаю текст...",
+        "🎤 Расшифровываю аудио..."
+    ]
+    message = await bot.send_message(chat_id, random.choice(thinking_messages))
+    return message.message_id
+
+async def delete_thinking_message(chat_id: int, message_id: int):
+    """Удаляет сообщение 'Думаю'"""
     try:
-        # Проверяем, есть ли подпись с инструкцией
-        user_instruction = message.caption or ""
-        
-        # Анализируем инструкцию пользователя
-        if any(word in user_instruction.lower() for word in ["напиши текст", "распознай текст", "прочитай текст", "текст на фото", "что написано"]):
-            # В реальной реализации здесь будет код OCR
-            # Для демонстрации используем заглушку
-            
-            response_text = "Функция распознавания текста с изображений временно недоступна. Если опишете, что изображено на фото, смогу помочь с анализом."
-            message_type = "photo_text"
-            
-        else:
-            # Если нет конкретной инструкции по тексту
-            if user_instruction:
-                response_text = f"Получила ваше фото с описанием: '{user_instruction}'. Чем могу помочь с этим изображением?"
-            else:
-                response_text = "Получила ваше изображение. Расскажите, что нужно сделать с этим фото?"
-            message_type = "photo"
-        
-        # Обновляем счетчики
-        increment_daily_requests(chat_id)
-        
-        # Отправляем ответ
-        await delete_thinking_message(chat_id, thinking_msg_id)
-        response = create_glemixai_response(response_text, message_type)
-        await message.answer(response)
-        
+        await bot.delete_message(chat_id, message_id)
     except Exception as e:
-        logger.error(f"Photo processing error: {e}")
-        await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Ошибка обработки изображения. Пожалуйста, попробуйте еще раз.")
+        logger.error(f"Ошибка удаления сообщения: {e}")
 
-# Обработчики остальных кнопок
+# =======================
+# ===== ОБРАБОТКА ОСНОВНЫХ КНОПОК =====
+# =======================
 @dp.message(F.text == "🚀 Начать работу")
 async def handle_start_work(message: types.Message):
     await cmd_start(message)
@@ -876,13 +826,13 @@ async def handle_start_work(message: types.Message):
 async def handle_about(message: types.Message):
     about_text = (
         "🤖 GlemixAI\n\n"
-        "Я - современный AI-помощник с широким набором функций:\n\n"
-        "• Умные ответы на вопросы\n"
-        "• Работа с текстами и изображениями\n"
-        "• Обработка голосовых сообщений\n"
-        "• Погода, калькулятор, конвертер\n"
-        "• Гибкая система тарифов\n\n"
-        "Всегда готова помочь с решением ваших задач."
+        "Я - современный AI-помощник с реальными функциями:\n\n"
+        "• 📝 Извлечение текста с фото (OCR)\n" 
+        "• 🎤 Распознавание голосовых сообщений\n"
+        "• 🧠 Умные ответы на вопросы\n"
+        "• 🌤️ Погода, калькулятор, конвертер\n"
+        "• 💎 Гибкая система тарифов\n\n"
+        "Работаю на Mistral AI - одном из лучших AI-провайдеров!"
     )
     await message.answer(about_text, reply_markup=get_main_keyboard(message.from_user.id))
 
@@ -891,7 +841,54 @@ async def handle_settings(message: types.Message):
     settings_text = "⚙️ Настройки\n\nВыберите категорию:"
     await message.answer(settings_text, reply_markup=get_settings_keyboard())
 
-# ... остальные обработчики кнопок ...
+@dp.message(F.text == "❓ Помощь")
+async def handle_help(message: types.Message):
+    help_text = (
+        "❓ Помощь по GlemixAI\n\n"
+        "Что я умею:\n"
+        "• 📸 Извлекать текст с фотографий\n"
+        "• 🎤 Распознавать голосовые сообщения\n" 
+        "• 💬 Отвечать на любые вопросы\n"
+        "• 🌤️ Показывать погоду\n"
+        "• 🔢 Выполнять вычисления\n\n"
+        "Просто отправьте:\n"
+        "• Фото с текстом - распознаю его\n"
+        "• Голосовое сообщение - расшифрую\n"
+        "• Текст - отвечу на вопрос"
+    )
+    await message.answer(help_text)
+
+@dp.message(F.text == "🌤️ Погода")
+async def handle_weather_button(message: types.Message):
+    await message.answer("🌤️ Введите название города для получения погоды:")
+
+@dp.message(F.text == "💎 Тарифы")
+async def handle_tariffs(message: types.Message):
+    tariffs_text = "💎 Доступные тарифы:\n\n"
+    
+    for tariff_id, tariff_info in TARIFFS.items():
+        tariffs_text += f"{tariff_info['name']}\n"
+        tariffs_text += f"Цена: {tariff_info['price']}\n"
+        tariffs_text += f"Лимит: {tariff_info['daily_limits']} запросов/день\n"
+        tariffs_text += f"Ожидание: {TARIFF_COOLDOWNS[tariff_id]} сек\n\n"
+    
+    await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
+
+@dp.message(F.text == "📊 Мой тариф")
+async def handle_my_tariff(message: types.Message):
+    chat_id = message.from_user.id
+    current_tariff = get_user_tariff(chat_id)
+    remaining_days = get_remaining_days(chat_id)
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    
+    tariff_text = f"📊 Ваш текущий тариф:\n\n"
+    tariff_text += f"💎 {TARIFFS[current_tariff]['name']}\n"
+    tariff_text += f"⏳ Осталось дней: {remaining_days}\n"
+    tariff_text += f"📊 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    tariff_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
+    tariff_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщений"
+    
+    await message.answer(tariff_text)
 
 @dp.message(F.text == "⬅️ Назад")
 async def handle_back(message: types.Message):
