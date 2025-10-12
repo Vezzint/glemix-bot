@@ -130,6 +130,127 @@ DATA_FILES = {
 }
 
 # =======================
+# ===== БОЛЬШАЯ БАЗА ГОРОДОВ ДЛЯ ПОГОДЫ =====
+# =======================
+CITY_MAPPING = {
+    # Российские города
+    "москва": "Moscow", "мск": "Moscow",
+    "санкт-петербург": "Saint Petersburg", "питер": "Saint Petersburg", "спб": "Saint Petersburg",
+    "новосибирск": "Novosibirsk", "нск": "Novosibirsk",
+    "екатеринбург": "Yekaterinburg", "екб": "Yekaterinburg",
+    "казань": "Kazan",
+    "нижний новгород": "Nizhny Novgorod", "нижний": "Nizhny Novgorod",
+    "челябинск": "Chelyabinsk",
+    "самара": "Samara",
+    "омск": "Omsk", 
+    "ростов-на-дону": "Rostov-on-Don", "ростов": "Rostov-on-Don",
+    "уфа": "Ufa",
+    "красноярск": "Krasnoyarsk",
+    "пермь": "Perm",
+    "воронеж": "Voronezh",
+    "волгоград": "Volgograd",
+    "краснодар": "Krasnodar",
+    "саратов": "Saratov",
+    "тюмень": "Tyumen",
+    "тольятти": "Tolyatti",
+    "ижевск": "Izhevsk",
+    "барнаул": "Barnaul",
+    "ульяновск": "Ulyanovsk",
+    "иркутск": "Irkutsk",
+    "хабаровск": "Khabarovsk",
+    "ярославль": "Yaroslavl",
+    "владивосток": "Vladivostok",
+    "махачкала": "Makhachkala",
+    "томск": "Tomsk",
+    "оренбург": "Orenburg",
+    "кемерово": "Kemerovo",
+    "новокузнецк": "Novokuznetsk",
+    "рязань": "Ryazan",
+    "астрахань": "Astrakhan",
+    "набережные челны": "Naberezhnye Chelny",
+    "пенза": "Penza",
+    "киров": "Kirov",
+    "липецк": "Lipetsk",
+    "чебоксары": "Cheboksary",
+    "калининград": "Kaliningrad",
+    "тула": "Tula",
+    "ставрополь": "Stavropol",
+    "курск": "Kursk",
+    "сочи": "Sochi",
+    "тверь": "Tver",
+    "магнитогорск": "Magnitogorsk",
+    "севастополь": "Sevastopol",
+    "сургут": "Surgut",
+    
+    # Международные города
+    "нью-йорк": "New York", "нью йорк": "New York", "new york": "New York",
+    "лондон": "London",
+    "париж": "Paris", 
+    "токио": "Tokyo",
+    "дубай": "Dubai",
+    "сидней": "Sydney",
+    "берлин": "Berlin",
+    "мадрид": "Madrid",
+    "рим": "Rome",
+    "амстердам": "Amsterdam",
+    "прага": "Prague",
+    "вена": "Vienna",
+    "варшава": "Warsaw",
+    "стамбул": "Istanbul",
+    "пекин": "Beijing",
+    "шанхай": "Shanghai",
+    "гонконг": "Hong Kong",
+    "сеул": "Seoul",
+    "бангкок": "Bangkok",
+    "сингапур": "Singapore",
+    "куала-лумпур": "Kuala Lumpur",
+    "мельбурн": "Melbourne",
+    "брисбен": "Brisbane",
+    "осло": "Oslo",
+    "стокгольм": "Stockholm",
+    "хельсинки": "Helsinki",
+    "копенгаген": "Copenhagen",
+    "милан": "Milan",
+    "барселона": "Barcelona",
+    "лиссабон": "Lisbon",
+    "брюссель": "Brussels",
+    "афины": "Athens",
+    "будапешт": "Budapest",
+    "бухарест": "Bucharest",
+    "киев": "Kyiv",
+    "минск": "Minsk",
+    "алматы": "Almaty",
+    "ташкент": "Tashkent",
+    "баку": "Baku",
+    "ереван": "Yerevan",
+    "теляви": "Tbilisi",
+    
+    # Украинские города
+    "киев": "Kyiv", "киеве": "Kyiv",
+    "харьков": "Kharkiv", "харькове": "Kharkiv",
+    "одесса": "Odesa", "одессе": "Odesa",
+    "днепр": "Dnipro", "днепре": "Dnipro",
+    "донецк": "Donetsk", "донецке": "Donetsk",
+    "запорожье": "Zaporizhzhia", "запорожье": "Zaporizhzhia",
+    "львов": "Lviv", "львове": "Lviv",
+    
+    # Казахстанские города
+    "алматы": "Almaty",
+    "нур-султан": "Nur-Sultan", "астана": "Nur-Sultan",
+    "шымкент": "Shymkent",
+    "актобе": "Aktobe",
+    "караганда": "Karaganda",
+    
+    # Белорусские города
+    "минск": "Minsk",
+    "гомель": "Gomel",
+    "могилев": "Mogilev",
+    "витебск": "Vitebsk",
+    "гродно": "Grodno",
+    "брест": "Brest",
+}
+
+# =======================
 # ===== УЛУЧШЕННОЕ СОХРАНЕНИЕ ДАННЫХ =====
 # =======================
 def load_data(filename: str, default: Any = None) -> Any:
@@ -446,27 +567,9 @@ async def get_detailed_weather(city: str) -> str:
     """Получает расширенную информацию о погоде с исправлениями"""
     try:
         city_clean = city.strip()
-        city_mapping = {
-            "москва": "Moscow",
-            "мск": "Moscow",
-            "санкт-петербург": "Saint Petersburg",
-            "питер": "Saint Petersburg", 
-            "спб": "Saint Petersburg",
-            "нью-йорк": "New York",
-            "нью йорк": "New York",
-            "new york": "New York",
-            "лондон": "London",
-            "париж": "Paris",
-            "берлин": "Berlin",
-            "токио": "Tokyo",
-            "дубай": "Dubai",
-            "сидней": "Sydney",
-            "казань": "Kazan",
-            "новосибирск": "Novosibirsk",
-            "екатеринбург": "Yekaterinburg"
-        }
-
-        api_city = city_mapping.get(city_clean.lower(), city_clean)
+        
+        # Используем нашу большую базу городов
+        api_city = CITY_MAPPING.get(city_clean.lower(), city_clean)
         url = f"http://api.openweathermap.org/data/2.5/weather?q={api_city}&appid={openweather_api_key}&units=metric&lang=ru"
 
         async with aiohttp.ClientSession() as session:
@@ -584,6 +687,136 @@ async def delete_thinking_message(chat_id: int, message_id: int):
         await bot.delete_message(chat_id, message_id)
     except Exception as e:
         logger.error(f"Ошибка удаления сообщения: {e}")
+
+# =======================
+# ===== АДМИН ПАНЕЛЬ =====
+# =======================
+def add_admin_log(action: str, admin_id: int = ADMIN_ID, target_user: Optional[int] = None):
+    """Добавляет запись в лог админ-панели"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "admin_id": admin_id,
+        "action": action,
+        "target_user": target_user
+    }
+    admin_logs.append(log_entry)
+    if len(admin_logs) > 100:
+        admin_logs.pop(0)
+    save_data(admin_logs, DATA_FILES['admin_logs'])
+
+@dp.message(F.text == "🛠️ Админ-панель")
+async def handle_admin_panel(message: types.Message):
+    """Обработка кнопки админ-панели"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_users = len(user_registration_date)
+    today_requests = sum(data.get("count", 0) for data in user_daily_requests.values() if data.get("date") == datetime.now().date())
+    active_subscriptions = sum(1 for end_date in user_subscription_end.values() if end_date > datetime.now())
+    
+    admin_text = (
+        "🛠️ Админ-панель GlemixAI\n\n"
+        f"👥 Пользователей: {total_users}\n"
+        f"📊 Запросов сегодня: {today_requests}\n"
+        f"💎 Активных подписок: {active_subscriptions}\n\n"
+        "Выберите действие:"
+    )
+    
+    await message.answer(admin_text, reply_markup=get_admin_keyboard())
+    add_admin_log("Открыл админ-панель")
+
+@dp.message(F.text == "👥 Статистика пользователей")
+async def handle_user_stats(message: types.Message):
+    """Статистика пользователей"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_users = len(user_registration_date)
+    active_today = 0
+    today = datetime.now().date()
+    
+    for user_id, daily_data in user_daily_requests.items():
+        if daily_data.get("date") == today and daily_data.get("count", 0) > 0:
+            active_today += 1
+    
+    # Статистика по тарифам
+    tariff_stats = {}
+    for user_id in user_registration_date:
+        tariff = get_user_tariff(user_id)
+        tariff_stats[tariff] = tariff_stats.get(tariff, 0) + 1
+    
+    stats_text = f"📊 Статистика пользователей:\n\n"
+    stats_text += f"👥 Всего пользователей: {total_users}\n"
+    stats_text += f"🟢 Активных сегодня: {active_today}\n"
+    stats_text += f"📅 Новых за сегодня: {sum(1 for reg_date in user_registration_date.values() if isinstance(reg_date, datetime) and reg_date.date() == today)}\n\n"
+    
+    stats_text += "💎 Распределение по тарифам:\n"
+    for tariff, count in tariff_stats.items():
+        stats_text += f"• {TARIFFS[tariff]['name']}: {count} пользователей\n"
+    
+    await message.answer(stats_text)
+    add_admin_log("Просмотрел статистику пользователей")
+
+@dp.message(F.text == "📊 Общая статистика")
+async def handle_general_stats(message: types.Message):
+    """Общая статистика"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_requests = sum(data.get("total", 0) for data in user_requests_count.values())
+    today_requests = sum(data.get("count", 0) for data in user_daily_requests.values() if data.get("date") == datetime.now().date())
+    
+    # Самые активные пользователи
+    top_users = sorted(user_requests_count.items(), key=lambda x: x[1].get("total", 0), reverse=True)[:5]
+    
+    stats_text = f"📈 Общая статистика:\n\n"
+    stats_text += f"🔄 Всего запросов: {total_requests}\n"
+    stats_text += f"📊 Запросов сегодня: {today_requests}\n"
+    stats_text += f"💾 Активных диалогов: {len(conversation_memory)}\n\n"
+    
+    stats_text += "🏆 Топ-5 активных пользователей:\n"
+    for i, (user_id, data) in enumerate(top_users, 1):
+        try:
+            user = await bot.get_chat(user_id)
+            username = f"@{user.username}" if user.username else user.first_name
+            stats_text += f"{i}. {username}: {data.get('total', 0)} запросов\n"
+        except:
+            stats_text += f"{i}. ID {user_id}: {data.get('total', 0)} запросов\n"
+    
+    await message.answer(stats_text)
+    add_admin_log("Просмотрел общую статистику")
+
+@dp.message(F.text == "📋 Логи действий")
+async def handle_action_logs(message: types.Message):
+    """Показывает логи действий админа"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    if not admin_logs:
+        await message.answer("📋 Логи действий пусты")
+        return
+    
+    # Показываем последние 10 записей
+    recent_logs = admin_logs[-10:]
+    logs_text = "📋 Последние действия админа:\n\n"
+    
+    for log in reversed(recent_logs):
+        timestamp = datetime.fromisoformat(log["timestamp"]).strftime("%H:%M:%S")
+        action = log["action"]
+        target = f" (пользователь {log['target_user']})" if log.get('target_user') else ""
+        logs_text += f"🕒 {timestamp}: {action}{target}\n"
+    
+    await message.answer(logs_text)
+    add_admin_log("Просмотрел логи действий")
+
+@dp.message(F.text == "⬅️ Главное меню")
+async def handle_admin_back(message: types.Message):
+    """Возврат в главное меню из админ-панели"""
+    await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
 
 # =======================
 # ===== КЛАВИАТУРЫ =====
@@ -1222,6 +1455,7 @@ async def main():
     print(f"💾 Пользователей: {len(user_registration_date)}")
     print(f"📊 Всего запросов: {sum(data.get('total', 0) for data in user_requests_count.values())}")
     print(f"🛠️ Админ ID: {ADMIN_ID}")
+    print(f"🌆 Городов в базе: {len(CITY_MAPPING)}")
     print("✅ GlemixAI готов к работе!")
     
     await bot.delete_webhook(drop_pending_updates=True)
