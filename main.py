@@ -108,6 +108,9 @@ TARIFF_MEMORY = {
     "ultimate": 100
 }
 
+# Лимиты для режима "Помощь с уроками" в бесплатной версии
+HOMEWORK_FREE_LIMITS = 9
+
 model = "mistral-large-latest"
 client = Mistral(api_key=mistral_api_key)
 
@@ -122,7 +125,8 @@ DATA_FILES = {
     'user_subscription_end': 'user_subscription_end.pkl',
     'user_daily_requests': 'user_daily_requests.pkl',
     'admin_logs': 'admin_logs.pkl',
-    'admin_temp_data': 'admin_temp_data.pkl'
+    'admin_temp_data': 'admin_temp_data.pkl',
+    'user_homework_requests': 'user_homework_requests.pkl'
 }
 
 # =======================
@@ -190,6 +194,10 @@ def initialize_user_data(chat_id: int):
     if chat_id not in user_subscription_end:
         user_subscription_end[chat_id] = datetime.now() + timedelta(days=FREE_PERIOD_DAYS)
         save_data(user_subscription_end, DATA_FILES['user_subscription_end'])
+    
+    if chat_id not in user_homework_requests:
+        user_homework_requests[chat_id] = {"used": 0, "last_reset": datetime.now().date()}
+        save_data(user_homework_requests, DATA_FILES['user_homework_requests'])
 
 def increment_user_requests(chat_id: int):
     """Увеличивает счетчик запросов пользователя"""
@@ -199,6 +207,28 @@ def increment_user_requests(chat_id: int):
     save_data(user_requests_count, DATA_FILES['user_requests_count'])
     
     increment_daily_requests(chat_id)
+
+def increment_homework_requests(chat_id: int):
+    """Увеличивает счетчик запросов в режиме помощи с уроками"""
+    initialize_user_data(chat_id)
+    
+    today = datetime.now().date()
+    if user_homework_requests[chat_id].get("last_reset") != today:
+        user_homework_requests[chat_id] = {"used": 0, "last_reset": today}
+    
+    user_homework_requests[chat_id]["used"] = user_homework_requests[chat_id].get("used", 0) + 1
+    save_data(user_homework_requests, DATA_FILES['user_homework_requests'])
+
+def get_remaining_homework_requests(chat_id: int) -> int:
+    """Возвращает оставшиеся запросы в режиме помощи с уроками"""
+    initialize_user_data(chat_id)
+    
+    today = datetime.now().date()
+    if user_homework_requests[chat_id].get("last_reset") != today:
+        return HOMEWORK_FREE_LIMITS
+    
+    used = user_homework_requests[chat_id].get("used", 0)
+    return max(0, HOMEWORK_FREE_LIMITS - used)
 
 # Загружаем данные при старте
 user_registration_date = load_data(DATA_FILES['user_registration_date'], {})
@@ -211,6 +241,7 @@ user_subscription_end = load_data(DATA_FILES['user_subscription_end'], {})
 user_daily_requests = load_data(DATA_FILES['user_daily_requests'], {})
 admin_logs = load_data(DATA_FILES['admin_logs'], [])
 admin_temp_data = load_data(DATA_FILES['admin_temp_data'], {})
+user_homework_requests = load_data(DATA_FILES['user_homework_requests'], {})
 
 # Переменные для временных данных
 user_last_request: Dict[int, float] = {}
@@ -331,6 +362,15 @@ def can_user_make_request(chat_id: int) -> tuple[bool, str]:
     
     return True, ""
 
+def can_user_make_homework_request(chat_id: int) -> tuple[bool, str]:
+    """Проверяет может ли пользователь сделать запрос в режиме помощи с уроками"""
+    if not is_subscription_active(chat_id) and chat_id != ADMIN_ID:
+        remaining_homework = get_remaining_homework_requests(chat_id)
+        if remaining_homework <= 0:
+            return False, f"Лимит запросов в режиме 'Помощь с уроками' исчерпан ({HOMEWORK_FREE_LIMITS}/день). Активируйте тариф для снятия ограничений."
+    
+    return True, ""
+
 # =======================
 # ===== УМНАЯ ОБРАБОТКА ФОТО =====
 # =======================
@@ -339,11 +379,13 @@ async def process_image_with_instructions(image_bytes: bytes, user_instruction: 
     try:
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
-        # Определяем тип запроса
         user_instruction_lower = user_instruction.lower()
         
-        if any(word in user_instruction_lower for word in ["переведи", "перевод", "translate"]):
-            prompt = "Пожалуйста, извлеки текст с этого изображения и переведи его на русский язык. Верни только перевод без оригинального текста."
+        # Если просят просто распознать текст - возвращаем как есть
+        if any(word in user_instruction_lower for word in ["распознай текст", "выпиши текст", "текст", "напиши текст"]):
+            prompt = "Пожалуйста, извлеки весь текст с этого изображения и верни его в оригинальном виде без изменений и переводов."
+        elif any(word in user_instruction_lower for word in ["переведи", "перевод", "translate"]):
+            prompt = "Пожалуйста, извлеки текст с этого изображения и переведи его на русский язык. Верни только перевод."
         elif any(word in user_instruction_lower for word in ["сумма", "суммируй", "сложи", "посчитай"]):
             prompt = "Пожалуйста, извлеки все числа с этого изображения и посчитай их сумму. Верни только результат вычисления."
         elif any(word in user_instruction_lower for word in ["анализ", "проанализируй", "расскажи"]):
@@ -372,7 +414,7 @@ async def process_image_with_instructions(image_bytes: bytes, user_instruction: 
         response = client.chat.complete(
             model="pixtral-12b-2409",
             messages=messages,
-            max_tokens=2000  # Увеличиваем лимит для сложных запросов
+            max_tokens=2000
         )
         
         result = response.choices[0].message.content.strip()
@@ -432,7 +474,6 @@ async def get_detailed_weather(city: str) -> str:
                 if resp.status == 200:
                     data = await resp.json()
                     
-                    # Основные данные
                     temp = round(data["main"]["temp"])
                     feels_like = round(data["main"]["feels_like"])
                     humidity = data["main"]["humidity"]
@@ -440,14 +481,12 @@ async def get_detailed_weather(city: str) -> str:
                     wind_speed = data["wind"]["speed"]
                     description = data["weather"][0]["description"]
                     
-                    # Исправляем время восхода и заката
                     timezone_offset = data["timezone"]
                     sunrise = datetime.fromtimestamp(data["sys"]["sunrise"] + timezone_offset).strftime("%H:%M")
                     sunset = datetime.fromtimestamp(data["sys"]["sunset"] + timezone_offset).strftime("%H:%M")
                     
                     cloudiness = data["clouds"]["all"]
                     
-                    # Создаем подробный отчет
                     weather_report = f"🌤️ Погода в {city_clean.title()}:\n\n"
                     weather_report += f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
                     weather_report += f"📝 {description.capitalize()}\n"
@@ -458,7 +497,6 @@ async def get_detailed_weather(city: str) -> str:
                     weather_report += f"🌅 Восход: {sunrise}\n"
                     weather_report += f"🌇 Закат: {sunset}\n"
                     
-                    # Умные рекомендации
                     if temp < -10:
                         weather_report += "\n❄️ Очень холодно! Теплая одежда обязательна."
                     elif temp < 0:
@@ -487,48 +525,33 @@ def create_smart_response(text: str, question_type: str = "normal") -> str:
     if not text or len(text.strip()) == 0:
         return "Не удалось получить ответ. Пожалуйста, повторите запрос."
     
-    # Определяем нужную длину ответа на основе типа вопроса
     if question_type == "weather":
-        # Погода всегда имеет фиксированный формат
         return text
-    
     elif question_type == "calculation":
-        # Вычисления короткие
         return text
-    
     elif question_type == "photo_text":
-        # Текст с фото может быть разным
-        if len(text) > 1000:
-            # Длинный текст - оставляем как есть
-            return f"📝 Результат обработки:\n\n{text}"
-        else:
-            return f"📝 {text}"
-    
+        return f"📝 {text}"
+    elif question_type == "homework":
+        return f"📚 {text}"
     elif question_type == "simple":
-        # Простые вопросы - короткие ответы
         if len(text) > 300:
-            # Если AI дал длинный ответ на простой вопрос, сокращаем
             sentences = text.split('. ')
             if len(sentences) > 1:
                 return '. '.join(sentences[:2]) + '.'
         return text
-    
     else:
-        # Сложные вопросы - полные ответы
         return text
 
 def should_use_long_answer(user_question: str, ai_response: str) -> bool:
     """Определяет, нужен ли длинный ответ"""
     user_lower = user_question.lower()
     
-    # Вопросы, требующие развернутых ответов
     long_answer_keywords = [
         "объясни", "расскажи", "как работает", "почему", "в чем разница",
         "преимущества", "недостатки", "сравни", "анализ", "исследование",
         "подробно", "детально", "развернуто"
     ]
     
-    # Вопросы, для которых достаточно короткого ответа
     short_answer_keywords = [
         "сколько времени", "который час", "какая дата", "привет", "пока",
         "как дела", "что нового", "курс", "погода", "посчитай"
@@ -542,11 +565,9 @@ def should_use_long_answer(user_question: str, ai_response: str) -> bool:
         if keyword in user_lower:
             return False
     
-    # Если ответ AI очень короткий, оставляем как есть
     if len(ai_response.split()) < 10:
         return False
     
-    # По умолчанию - средняя длина
     return len(ai_response) > 500
 
 # =======================
@@ -565,21 +586,8 @@ async def delete_thinking_message(chat_id: int, message_id: int):
         logger.error(f"Ошибка удаления сообщения: {e}")
 
 # =======================
-# ===== АДМИН ПАНЕЛЬ И КЛАВИАТУРЫ =====
+# ===== КЛАВИАТУРЫ =====
 # =======================
-def add_admin_log(action: str, admin_id: int = ADMIN_ID, target_user: Optional[int] = None):
-    """Добавляет запись в лог админ-панели"""
-    log_entry = {
-        "timestamp": datetime.now().isoformat(),
-        "admin_id": admin_id,
-        "action": action,
-        "target_user": target_user
-    }
-    admin_logs.append(log_entry)
-    if len(admin_logs) > 100:
-        admin_logs.pop(0)
-    save_data(admin_logs, DATA_FILES['admin_logs'])
-
 def get_main_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
     """Главная клавиатура"""
     keyboard = [
@@ -607,6 +615,53 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
         resize_keyboard=True
     )
 
+def get_settings_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура настроек"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🎭 Режимы AI"), KeyboardButton(text="📊 Статистика")],
+            [KeyboardButton(text="🎨 Стиль общения"), KeyboardButton(text="ℹ️ Информация")],
+            [KeyboardButton(text="⚡ Быстрые команды")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_tariffs_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура тарифов"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🚀 Default"), KeyboardButton(text="⭐ Pro")],
+            [KeyboardButton(text="💎 Advanced"), KeyboardButton(text="👑 Ultimate")],
+            [KeyboardButton(text="📊 Мой тариф")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_mode_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура режимов AI"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🧘 Спокойный"), KeyboardButton(text="💬 Обычный")],
+            [KeyboardButton(text="⚡ Короткий"), KeyboardButton(text="🧠 Умный")],
+            [KeyboardButton(text="📚 Помощь с уроками")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_style_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура стилей общения"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="💫 Дружелюбный"), KeyboardButton(text="⚖️ Сбалансированный")],
+            [KeyboardButton(text="🎯 Деловой"), KeyboardButton(text="🎨 Креативный")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
 def get_weather_keyboard() -> ReplyKeyboardMarkup:
     """Клавиатура для выбора городов погоды"""
     return ReplyKeyboardMarkup(
@@ -619,11 +674,17 @@ def get_weather_keyboard() -> ReplyKeyboardMarkup:
         resize_keyboard=True
     )
 
-# Остальные клавиатуры остаются без изменений
-def get_settings_keyboard(): return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🎭 Режимы AI"), KeyboardButton(text="📊 Статистика")], [KeyboardButton(text="🎨 Стиль общения"), KeyboardButton(text="ℹ️ Информация")], [KeyboardButton(text="⚡ Быстрые команды")], [KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
-def get_tariffs_keyboard(): return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🚀 Default"), KeyboardButton(text="⭐ Pro")], [KeyboardButton(text="💎 Advanced"), KeyboardButton(text="👑 Ultimate")], [KeyboardButton(text="📊 Мой тариф")], [KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
-def get_mode_keyboard(): return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🧘 Спокойный"), KeyboardButton(text="💬 Обычный")], [KeyboardButton(text="⚡ Короткий"), KeyboardButton(text="🧠 Умный")], [KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
-def get_style_keyboard(): return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="💫 Дружелюбный"), KeyboardButton(text="⚖️ Сбалансированный")], [KeyboardButton(text="🎯 Деловой"), KeyboardButton(text="🎨 Креативный")], [KeyboardButton(text="⬅️ Назад")]], resize_keyboard=True)
+def get_quick_commands_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура быстрых команд"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📝 Конвертер валют"), KeyboardButton(text="🎯 Случайный выбор")],
+            [KeyboardButton(text="📅 Текущая дата"), KeyboardButton(text="⏰ Текущее время")],
+            [KeyboardButton(text="🔢 Калькулятор"), KeyboardButton(text="🎁 Сюрприз")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
 
 # =======================
 # ===== ОСНОВНЫЕ КОМАНДЫ =====
@@ -637,12 +698,14 @@ async def cmd_start(message: types.Message):
     remaining_days = get_remaining_days(chat_id)
     current_tariff = get_user_tariff(chat_id)
     remaining_requests = get_remaining_daily_requests(chat_id)
+    remaining_homework = get_remaining_homework_requests(chat_id)
     is_free = is_free_period_active(chat_id)
     
     welcome_text = f"🤖 GlemixAI\n\nДобро пожаловать! Я ваш AI-помощник.\n\n"
     
     if is_free:
         welcome_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
+        welcome_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS} запросов\n"
     else:
         welcome_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
         welcome_text += f"📅 Осталось дней: {remaining_days}\n"
@@ -658,6 +721,230 @@ async def cmd_start(message: types.Message):
     welcome_text += "Выберите действие:"
 
     await message.answer(welcome_text, reply_markup=get_main_keyboard(chat_id))
+
+# =======================
+# ===== ОБРАБОТКА КНОПОК НАСТРОЕК =====
+# =======================
+@dp.message(F.text == "⚙️ Настройки")
+async def handle_settings(message: types.Message):
+    settings_text = "⚙️ Настройки\n\nВыберите категорию:"
+    await message.answer(settings_text, reply_markup=get_settings_keyboard())
+
+@dp.message(F.text == "🎭 Режимы AI")
+async def handle_ai_modes(message: types.Message):
+    modes_text = (
+        "🎭 Режимы AI\n\n"
+        "Выберите режим работы:\n"
+        "• 🧘 Спокойный - мягкие ответы\n"
+        "• 💬 Обычный - сбалансированные ответы\n"
+        "• ⚡ Короткий - краткие ответы\n"
+        "• 🧠 Умный - детальные аналитические ответы\n"
+        "• 📚 Помощь с уроками - максимальная помощь с домашними заданиями"
+    )
+    await message.answer(modes_text, reply_markup=get_mode_keyboard())
+
+@dp.message(F.text == "📚 Помощь с уроками")
+async def handle_homework_mode(message: types.Message):
+    """Активация режима помощи с уроками"""
+    chat_id = message.chat.id
+    user_modes[chat_id] = "homework"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    
+    remaining_homework = get_remaining_homework_requests(chat_id)
+    is_free = is_free_period_active(chat_id)
+    
+    mode_text = "📚 Режим 'Помощь с уроками' активирован!\n\n"
+    mode_text += "Я буду максимально подробно помогать с:\n"
+    mode_text += "• Домашними заданиями\n• Учебными материалами\n"
+    mode_text += "• Объяснениями сложных тем\n• Решением задач\n\n"
+    
+    if is_free:
+        mode_text += f"⚠️ В бесплатной версии: {remaining_homework}/{HOMEWORK_FREE_LIMITS} запросов сегодня\n\n"
+    
+    mode_text += "Отправьте ваш учебный вопрос или задание:"
+    
+    await message.answer(mode_text)
+
+@dp.message(F.text == "💬 Обычный")
+async def handle_normal_mode(message: types.Message):
+    chat_id = message.chat.id
+    user_modes[chat_id] = "обычный"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    await message.answer("💬 Обычный режим активирован", reply_markup=get_mode_keyboard())
+
+@dp.message(F.text == "⚡ Короткий")
+async def handle_short_mode(message: types.Message):
+    chat_id = message.chat.id
+    user_modes[chat_id] = "короткий"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    await message.answer("⚡ Короткий режим активирован", reply_markup=get_mode_keyboard())
+
+@dp.message(F.text == "🧠 Умный")
+async def handle_smart_mode(message: types.Message):
+    chat_id = message.chat.id
+    user_modes[chat_id] = "умный"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    await message.answer("🧠 Умный режим активирован", reply_markup=get_mode_keyboard())
+
+@dp.message(F.text == "🧘 Спокойный")
+async def handle_calm_mode(message: types.Message):
+    chat_id = message.chat.id
+    user_modes[chat_id] = "спокойный"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    await message.answer("🧘 Спокойный режим активирован", reply_markup=get_mode_keyboard())
+
+@dp.message(F.text == "📊 Статистика")
+async def handle_user_statistics(message: types.Message):
+    chat_id = message.from_user.id
+    total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    remaining_homework = get_remaining_homework_requests(chat_id)
+    current_tariff = get_user_tariff(chat_id)
+    
+    stats_text = f"📊 Ваша статистика:\n\n"
+    stats_text += f"📈 Всего запросов: {total_requests}\n"
+    stats_text += f"📅 Осталось сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    stats_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS}\n"
+    stats_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
+    stats_text += f"⏳ Осталось дней: {get_remaining_days(chat_id)}"
+    
+    await message.answer(stats_text)
+
+@dp.message(F.text == "🎨 Стиль общения")
+async def handle_communication_style(message: types.Message):
+    style_text = (
+        "🎨 Стиль общения\n\n"
+        "Выберите предпочтительный стиль:\n"
+        "• 💫 Дружелюбный - неформальное общение\n"
+        "• ⚖️ Сбалансированный - универсальный стиль\n"
+        "• 🎯 Деловой - профессиональный тон\n"
+        "• 🎨 Креативный - творческие ответы"
+    )
+    await message.answer(style_text, reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "💫 Дружелюбный")
+async def handle_friendly_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "friendly"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("💫 Стиль 'Дружелюбный' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "⚖️ Сбалансированный")
+async def handle_balanced_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "balanced"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("⚖️ Стиль 'Сбалансированный' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "🎯 Деловой")
+async def handle_business_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "business"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("🎯 Стиль 'Деловой' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "🎨 Креативный")
+async def handle_creative_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "creative"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("🎨 Стиль 'Креативный' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "ℹ️ Информация")
+async def handle_info(message: types.Message):
+    info_text = (
+        "ℹ️ Информация о GlemixAI\n\n"
+        "🤖 Современный AI-помощник на базе Mistral AI\n\n"
+        "📋 Возможности обработки изображений:\n"
+        "• 📝 Распознавание текста\n"
+        "• 🔤 Перевод на разные языки\n"
+        "• 🧮 Суммирование чисел\n"
+        "• 📊 Анализ содержания\n"
+        "• ✂️ Сокращение текста\n\n"
+        "💡 Просто отправьте фото с текстом и укажите, что нужно сделать!\n\n"
+        "Версия: 2.1\n"
+        "Разработчик: Glemix Team"
+    )
+    await message.answer(info_text)
+
+@dp.message(F.text == "⚡ Быстрые команды")
+async def handle_quick_commands(message: types.Message):
+    await message.answer("⚡ Быстрые команды:", reply_markup=get_quick_commands_keyboard())
+
+@dp.message(F.text == "⬅️ Назад")
+async def handle_back(message: types.Message):
+    await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
+
+# =======================
+# ===== ОБРАБОТКА ОСНОВНЫХ КНОПОК =====
+# =======================
+@dp.message(F.text == "🚀 Начать работу")
+async def handle_start_work(message: types.Message):
+    await cmd_start(message)
+
+@dp.message(F.text == "🌟 Обо мне")
+async def handle_about(message: types.Message):
+    about_text = (
+        "🤖 GlemixAI\n\n"
+        "Я - современный AI-помощник с реальными функциями:\n\n"
+        "• 📝 Извлечение текста с фото (OCR)\n" 
+        "• 🎤 Распознавание голосовых сообщений\n"
+        "• 🧠 Умные ответы на вопросы\n"
+        "• 🌤️ Подробная погода в любом городе\n"
+        "• 📚 Помощь с домашними заданиями\n"
+        "• 💎 Гибкая система тарифов\n\n"
+        "Работаю на Mistral AI - одном из лучших AI-провайдеров!"
+    )
+    await message.answer(about_text, reply_markup=get_main_keyboard(message.from_user.id))
+
+@dp.message(F.text == "❓ Помощь")
+async def handle_help(message: types.Message):
+    help_text = (
+        "❓ Помощь по GlemixAI\n\n"
+        "Что я умею:\n"
+        "• 📸 Извлекать текст с фотографий\n"
+        "• 🎤 Распознавать голосовые сообщения\n" 
+        "• 💬 Отвечать на любые вопросы\n"
+        "• 🌤️ Показывать подробную погоду\n"
+        "• 📚 Помогать с домашними заданиями\n"
+        "• 🔢 Выполнять вычисления\n\n"
+        "Просто отправьте:\n"
+        "• Фото с текстом - распознаю его\n"
+        "• Голосовое сообщение - расшифрую\n"
+        "• Текст - отвечу на вопрос\n"
+        "• Название города - покажу погоду"
+    )
+    await message.answer(help_text)
+
+@dp.message(F.text == "💎 Тарифы")
+async def handle_tariffs(message: types.Message):
+    tariffs_text = "💎 Доступные тарифы:\n\n"
+    
+    for tariff_id, tariff_info in TARIFFS.items():
+        tariffs_text += f"{tariff_info['name']}\n"
+        tariffs_text += f"Цена: {tariff_info['price']}\n"
+        tariffs_text += f"Лимит: {tariff_info['daily_limits']} запросов/день\n"
+        tariffs_text += f"Ожидание: {TARIFF_COOLDOWNS[tariff_id]} сек\n\n"
+    
+    await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
+
+@dp.message(F.text == "📊 Мой тариф")
+async def handle_my_tariff(message: types.Message):
+    chat_id = message.from_user.id
+    current_tariff = get_user_tariff(chat_id)
+    remaining_days = get_remaining_days(chat_id)
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    remaining_homework = get_remaining_homework_requests(chat_id)
+    
+    tariff_text = f"📊 Ваш текущий тариф:\n\n"
+    tariff_text += f"💎 {TARIFFS[current_tariff]['name']}\n"
+    tariff_text += f"⏳ Осталось дней: {remaining_days}\n"
+    tariff_text += f"📊 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    tariff_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS}\n"
+    tariff_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
+    tariff_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщений"
+    
+    await message.answer(tariff_text)
 
 # =======================
 # ===== УМНАЯ ОБРАБОТКА ФОТО =====
@@ -680,7 +967,7 @@ async def handle_photo(message: types.Message):
         downloaded_file = await bot.download_file(file_info.file_path)
         image_bytes = downloaded_file.read()
         
-        user_instruction = message.caption or "извлеки текст"
+        user_instruction = message.caption or "распознай текст"
         
         # Обрабатываем изображение с учетом инструкций
         result = await process_image_with_instructions(image_bytes, user_instruction)
@@ -694,11 +981,6 @@ async def handle_photo(message: types.Message):
         else:
             response = create_smart_response(result, "photo_text")
             await message.answer(response)
-            
-            # Предлагаем дополнительные действия если это просто текст
-            if "переведи" not in user_instruction.lower() and "анализ" not in user_instruction.lower():
-                help_text = "📋 Что сделать с этим текстом? Могу:\n• Перевести\n• Суммировать числа\n• Сократить\n• Проанализировать"
-                await message.answer(help_text)
         
     except Exception as e:
         logger.error(f"Photo processing error: {e}")
@@ -783,15 +1065,33 @@ async def handle_all_messages(message: types.Message):
     user_text = message.text or ""
     
     # Игнорируем обработанные команды и кнопки
-    button_texts = ["🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤️ Погода", "💎 Тарифы", "📊 Мой тариф", "⬅️ Назад", "🛠️ Админ-панель", "🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио", "🌃 Другой город"]
+    button_texts = [
+        "🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤️ Погода", 
+        "💎 Тарифы", "📊 Мой тариф", "⬅️ Назад", "🛠️ Админ-панель", "🌆 Москва", 
+        "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио", 
+        "🌃 Другой город", "🎭 Режимы AI", "📊 Статистика", "🎨 Стиль общения", 
+        "ℹ️ Информация", "⚡ Быстрые команды", "🧘 Спокойный", "💬 Обычный", 
+        "⚡ Короткий", "🧠 Умный", "📚 Помощь с уроками", "💫 Дружелюбный", 
+        "⚖️ Сбалансированный", "🎯 Деловой", "🎨 Креативный", "🚀 Default", 
+        "⭐ Pro", "💎 Advanced", "👑 Ultimate"
+    ]
     
     if user_text.startswith('/') or user_text in button_texts:
         return
     
-    can_request, error_msg = can_user_make_request(chat_id)
-    if not can_request:
-        await message.answer(error_msg)
-        return
+    # Проверяем режим пользователя
+    current_mode = user_modes.get(chat_id, "обычный")
+    
+    if current_mode == "homework":
+        can_request, error_msg = can_user_make_homework_request(chat_id)
+        if not can_request:
+            await message.answer(error_msg)
+            return
+    else:
+        can_request, error_msg = can_user_make_request(chat_id)
+        if not can_request:
+            await message.answer(error_msg)
+            return
     
     current_time = time.time()
     last_request = user_last_request.get(chat_id, 0)
@@ -807,7 +1107,11 @@ async def handle_all_messages(message: types.Message):
     thinking_msg_id = await send_thinking_message(chat_id)
     
     try:
-        increment_user_requests(chat_id)
+        # Увеличиваем соответствующий счетчик
+        if current_mode == "homework":
+            increment_homework_requests(chat_id)
+        else:
+            increment_user_requests(chat_id)
         
         user_text_lower = user_text.lower()
         message_type = "normal"
@@ -815,7 +1119,6 @@ async def handle_all_messages(message: types.Message):
         
         # Умное определение запроса погоды
         if any(word in user_text_lower for word in ["погода", "погоду", "температура"]):
-            # Извлекаем город из запроса
             city = user_text_lower
             for word in ["погода", "погоду", "температура", "в", "какая", "сейчас"]:
                 city = city.replace(word, "")
@@ -848,20 +1151,30 @@ async def handle_all_messages(message: types.Message):
                 message_type = "calculation"
                 
         else:
-            # AI-ответ с умным определением длины
+            # AI-ответ с учетом режима
             try:
                 if chat_id not in conversation_memory:
                     conversation_memory[chat_id] = []
                 
-                # Определяем сложность вопроса для промпта
-                is_complex_question = should_use_long_answer(user_text, "")
-                
-                system_prompt = """Ты - GlemixAI, современный AI-помощник. Отвечай профессионально и по делу."""
-                
-                if is_complex_question:
-                    system_prompt += " Дай развернутый ответ с объяснениями."
+                # Специальный промпт для режима помощи с уроками
+                if current_mode == "homework":
+                    system_prompt = """Ты - опытный преподаватель и репетитор. Помоги ученику с домашним заданием максимально подробно и понятно.
+
+Твои задачи:
+1. Тщательно разобрать вопрос/задачу
+2. Объяснить решение шаг за шагом
+3. Дать дополнительные примеры если нужно
+4. Убедиться что ученик понял материал
+5. Быть терпеливым и поддерживающим
+
+Отвечай подробно, с объяснениями и примерами. Помоги действительно понять тему, а не просто дать ответ."""
+                    message_type = "homework"
                 else:
-                    system_prompt += " Дай краткий и четкий ответ."
+                    system_prompt = """Ты - GlemixAI, современный AI-помощник. Отвечай профессионально и по делу."""
+                    if should_use_long_answer(user_text, ""):
+                        system_prompt += " Дай развернутый ответ с объяснениями."
+                    else:
+                        system_prompt += " Дай краткий и четкий ответ."
                 
                 messages = [
                     {"role": "system", "content": system_prompt},
@@ -885,12 +1198,6 @@ async def handle_all_messages(message: types.Message):
                 save_data(conversation_memory, DATA_FILES['conversation_memory'])
                 response_text = ai_text
                 
-                # Определяем тип ответа для умного форматирования
-                if is_complex_question or len(ai_text.split()) > 100:
-                    message_type = "complex"
-                else:
-                    message_type = "simple"
-                
             except Exception as e:
                 logger.error(f"AI error: {e}")
                 response_text = "⚠️ Ошибка при обработке запроса. Попробуйте еще раз."
@@ -904,9 +1211,6 @@ async def handle_all_messages(message: types.Message):
         logger.error(f"Handler error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
         await message.answer("❌ Произошла ошибка. Пожалуйста, попробуйте еще раз.")
-
-# Остальные обработчики кнопок и админ-панели остаются без изменений
-# ... (все остальные функции из предыдущего кода)
 
 # =======================
 # ===== ЗАПУСК БОТА =====
