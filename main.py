@@ -773,46 +773,26 @@ async def get_ai_response(message_text: str, chat_id: int) -> str:
 # =======================
 # ===== КЛАВИАТУРЫ =====
 # =======================
-def get_main_keyboard() -> ReplyKeyboardMarkup:
+def get_main_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
     """Главная клавиатура"""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="💬 Обычный чат"), KeyboardButton(text="📚 Помощь с уроками")],
-            [KeyboardButton(text="📸 Обработать фото"), KeyboardButton(text="🎤 Голосовое сообщение")],
-            [KeyboardButton(text="🌤️ Узнать погоду"), KeyboardButton(text="⚙️ Настройки")],
-            [KeyboardButton(text="📊 Профиль"), KeyboardButton(text="💎 Тарифы")]
-        ],
-        resize_keyboard=True
-    )
+    keyboard = [
+        [KeyboardButton(text="🚀 Начать работу"), KeyboardButton(text="🌟 Обо мне")],
+        [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Помощь"), KeyboardButton(text="🌤️ Погода")],
+        [KeyboardButton(text="💎 Тарифы")]
+    ]
+    
+    if chat_id == ADMIN_ID:
+        keyboard.append([KeyboardButton(text="🛠️ Админ-панель")])
+    
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 def get_settings_keyboard() -> ReplyKeyboardMarkup:
     """Клавиатура настроек"""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🎭 Стиль общения"), KeyboardButton(text="🎛️ Режим работы")],
-            [KeyboardButton(text="🧹 Очистить историю"), KeyboardButton(text="📊 Статистика")],
-            [KeyboardButton(text="⬅️ Назад в меню")]
-        ],
-        resize_keyboard=True
-    )
-
-def get_style_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура стилей"""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="⚖️ Сбалансированный"), KeyboardButton(text="💼 Профессиональный")],
-            [KeyboardButton(text="😊 Дружелюбный"), KeyboardButton(text="🎨 Креативный")],
-            [KeyboardButton(text="⬅️ Назад")]
-        ],
-        resize_keyboard=True
-    )
-
-def get_mode_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура режимов"""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="💬 Обычный"), KeyboardButton(text="📚 Помощь с уроками")],
-            [KeyboardButton(text="🔍 Аналитический"), KeyboardButton(text="🎯 Краткий")],
+            [KeyboardButton(text="🎭 Режимы AI"), KeyboardButton(text="📊 Статистика")],
+            [KeyboardButton(text="🎨 Стиль общения"), KeyboardButton(text="ℹ️ Информация")],
+            [KeyboardButton(text="⚡ Быстрые команды")],
             [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
@@ -824,18 +804,66 @@ def get_tariffs_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="🚀 Default"), KeyboardButton(text="⭐ Pro")],
             [KeyboardButton(text="💎 Advanced"), KeyboardButton(text="👑 Ultimate")],
-            [KeyboardButton(text="📊 Мой тариф"), KeyboardButton(text="⬅️ Назад в меню")]
+            [KeyboardButton(text="📊 Мой тариф")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_mode_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура режимов AI"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🧘 Спокойный"), KeyboardButton(text="💬 Обычный")],
+            [KeyboardButton(text="⚡ Короткий"), KeyboardButton(text="🧠 Умный")],
+            [KeyboardButton(text="📚 Помощь с уроками")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_style_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура стилей общения"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="💫 Дружелюбный"), KeyboardButton(text="⚖️ Сбалансированный")],
+            [KeyboardButton(text="🎯 Деловой"), KeyboardButton(text="🎨 Креативный")],
+            [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
     )
 
 def get_weather_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура погоды"""
+    """Клавиатура для выбора городов погоды"""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🌆 Москва"), KeyboardButton(text="🏛️ Санкт-Петербург")],
             [KeyboardButton(text="🗽 Нью-Йорк"), KeyboardButton(text="🌉 Лондон")],
-            [KeyboardButton(text="🌃 Другой город"), KeyboardButton(text="⬅️ Назад в меню")]
+            [KeyboardButton(text="🗼 Париж"), KeyboardButton(text="🏯 Токио")],
+            [KeyboardButton(text="🌃 Другой город"), KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_quick_commands_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура быстрых команд"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📝 Конвертер валют"), KeyboardButton(text="🎯 Случайный выбор")],
+            [KeyboardButton(text="📅 Текущая дата"), KeyboardButton(text="⏰ Текущее время")],
+            [KeyboardButton(text="🔢 Калькулятор"), KeyboardButton(text="🎁 Сюрприз")],
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+def get_admin_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура админ-панели"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="👥 Статистика пользователей"), KeyboardButton(text="📊 Общая статистика")],
+            [KeyboardButton(text="📋 Логи действий")],
+            [KeyboardButton(text="⬅️ Главное меню")]
         ],
         resize_keyboard=True
     )
@@ -845,250 +873,190 @@ def get_weather_keyboard() -> ReplyKeyboardMarkup:
 # =======================
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    """Команда /start с улучшенным приветствием"""
     chat_id = message.chat.id
     initialize_user_data(chat_id)
-    
-    user_name = message.from_user.first_name
+
+    current_mode = user_modes[chat_id]
     remaining_days = get_remaining_days(chat_id)
     current_tariff = get_user_tariff(chat_id)
-    tariff_info = TARIFFS[current_tariff]
+    remaining_requests = get_remaining_daily_requests(chat_id)
+    remaining_homework = get_remaining_homework_requests(chat_id)
+    is_free = is_free_period_active(chat_id)
     
-    welcome_text = f"👋 Привет, {user_name}!\n\n"
-    welcome_text += f"🤖 Я твой AI-ассистент с расширенными возможностями:\n\n"
-    welcome_text += "📸 *Распознавание фото* - текст, перевод, анализ\n"
-    welcome_text += "🎤 *Обработка голоса* - транскрибация аудио\n" 
-    welcome_text += "🌤️ *Погода* - детальная информация по городам\n"
-    welcome_text += "📚 *Помощь с уроками* - решение задач и объяснения\n"
-    welcome_text += "💬 *Умный чат* - с памятью и разными стилями\n\n"
+    welcome_text = f"🤖 GlemixAI\n\nДобро пожаловать! Я ваш AI-помощник.\n\n"
     
-    if is_free_period_active(chat_id):
-        welcome_text += f"🆓 *Бесплатный период*: {remaining_days} дней осталось\n"
+    if is_free:
+        welcome_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
+        welcome_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS} запросов\n"
     else:
-        welcome_text += f"⭐ *Текущий тариф*: {tariff_info['name']}\n"
-        welcome_text += f"📅 *Подписка активна*: {remaining_days} дней\n"
+        welcome_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
+        welcome_text += f"📅 Осталось дней: {remaining_days}\n"
     
-    welcome_text += f"\n📊 *Лимиты сегодня*: {get_remaining_daily_requests(chat_id)}/{tariff_info['daily_limits']} запросов\n\n"
+    welcome_text += f"📊 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    welcome_text += f"🎭 Режим: {current_mode}\n"
+    welcome_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщений\n"
+    welcome_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n\n"
+    
+    if is_free and remaining_days <= 2:
+        welcome_text += "💡 Бесплатный период скоро закончится.\n\n"
+    
     welcome_text += "Выберите действие:"
 
-    await message.answer(welcome_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
-
-@dp.message(Command("menu"))
-async def cmd_menu(message: types.Message):
-    """Главное меню"""
-    await message.answer("🎛️ Главное меню:", reply_markup=get_main_keyboard())
+    await message.answer(welcome_text, reply_markup=get_main_keyboard(chat_id))
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК ГЛАВНОГО МЕНЮ =====
 # =======================
-@dp.message(F.text == "💬 Обычный чат")
-async def handle_normal_chat(message: types.Message):
-    """Обработка кнопки обычного чата"""
-    chat_id = message.chat.id
-    user_modes[chat_id] = "обычный"
-    save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("💬 Режим изменен на *Обычный чат*. Теперь я готов к беседе!", 
-                        reply_markup=get_main_keyboard(), parse_mode="Markdown")
+@dp.message(F.text == "🚀 Начать работу")
+async def handle_start_work(message: types.Message):
+    await cmd_start(message)
 
-@dp.message(F.text == "📚 Помощь с уроками")
-async def handle_homework_mode(message: types.Message):
-    """Обработка кнопки помощи с уроками"""
-    chat_id = message.chat.id
-    user_modes[chat_id] = "помощь с уроками"
-    save_data(user_modes, DATA_FILES['user_modes'])
-    remaining = get_remaining_homework_requests(chat_id)
-    await message.answer(
-        f"📚 Режим изменен на *Помощь с уроками*! Отправляйте задачи по любым предметам.\n\n"
-        f"📊 Осталось запросов сегодня: {remaining}/{HOMEWORK_FREE_LIMITS}",
-        reply_markup=get_main_keyboard(), 
-        parse_mode="Markdown"
+@dp.message(F.text == "🌟 Обо мне")
+async def handle_about(message: types.Message):
+    about_text = (
+        "🤖 GlemixAI\n\n"
+        "Я - современный AI-помощник с реальными функциями:\n\n"
+        "• 📝 Извлечение текста с фото (OCR)\n" 
+        "• 🎤 Распознавание голосовых сообщений\n"
+        "• 🧠 Умные ответы на вопросы\n"
+        "• 🌤️ Подробная погода в любом городе\n"
+        "• 📚 Помощь с домашними заданиями\n"
+        "• 💎 Гибкая система тарифов\n\n"
+        "Работаю на Mistral AI - одном из лучших AI-провайдеров!"
     )
+    await message.answer(about_text, reply_markup=get_main_keyboard(message.from_user.id))
 
-@dp.message(F.text == "📸 Обработать фото")
-async def handle_photo_processing(message: types.Message):
-    """Обработка кнопки обработки фото"""
-    await message.answer(
-        "📸 Отправьте фото с текстом для обработки. Вы можете добавить инструкцию в подписи к фото, например:\n"
-        "• \"распознай текст\"\n• \"переведи на английский\"\n• \"расскажи что на фото\"",
-        reply_markup=get_main_keyboard()
+@dp.message(F.text == "❓ Помощь")
+async def handle_help(message: types.Message):
+    help_text = (
+        "❓ Помощь по GlemixAI\n\n"
+        "Что я умею:\n"
+        "• 📸 Извлекать текст с фотографий\n"
+        "• 🎤 Распознавать голосовые сообщения\n" 
+        "• 💬 Отвечать на любые вопросы\n"
+        "• 🌤️ Показывать подробную погоду\n"
+        "• 📚 Помогать с домашними заданиями\n"
+        "• 🔢 Выполнять вычисления\n\n"
+        "Просто отправьте:\n"
+        "• Фото с текстом - распознаю его\n"
+        "• Голосовое сообщение - расшифрую\n"
+        "• Текст - отвечу на вопрос\n"
+        "• Название города - покажу погоду"
     )
+    await message.answer(help_text, reply_markup=get_main_keyboard(message.from_user.id))
 
-@dp.message(F.text == "🎤 Голосовое сообщение")
-async def handle_voice_message(message: types.Message):
-    """Обработка кнопки голосового сообщения"""
-    await message.answer(
-        "🎤 Отправьте голосовое сообщение. Я распознаю речь и отвечу текстом. Поддерживаются основные языки.",
-        reply_markup=get_main_keyboard()
-    )
-
-@dp.message(F.text == "🌤️ Узнать погоду")
-async def handle_weather(message: types.Message):
-    """Обработка кнопки погоды"""
-    await message.answer(
-        "🌤️ Выберите город или введите название другого города:",
-        reply_markup=get_weather_keyboard()
-    )
-
-@dp.message(F.text == "⚙️ Настройки")
-async def handle_settings(message: types.Message):
-    """Обработка кнопки настроек"""
-    await message.answer("⚙️ Настройки бота:", reply_markup=get_settings_keyboard())
-
-@dp.message(F.text == "📊 Профиль")
-async def handle_profile(message: types.Message):
-    """Обработка кнопки профиля"""
-    chat_id = message.chat.id
-    initialize_user_data(chat_id)
-    
-    current_tariff = get_user_tariff(chat_id)
-    tariff_info = TARIFFS[current_tariff]
-    remaining_days = get_remaining_days(chat_id)
-    remaining_requests = get_remaining_daily_requests(chat_id)
-    total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
-    
-    registration_date = user_registration_date.get(chat_id, datetime.now())
-    days_registered = (datetime.now() - registration_date).days
-    
-    text = f"👤 *Ваш профиль*\n\n"
-    text += f"🆔 ID: `{chat_id}`\n"
-    text += f"📅 Зарегистрирован: {days_registered} дней назад\n"
-    text += f"💎 Тариф: {tariff_info['name']}\n"
-    text += f"⏳ Осталось дней: {remaining_days}\n"
-    text += f"📊 Запросы сегодня: {remaining_requests}/{tariff_info['daily_limits']}\n"
-    text += f"📈 Всего запросов: {total_requests}\n"
-    text += f"💬 Стиль общения: {chat_style.get(chat_id, 'balanced')}\n"
-    text += f"🎯 Режим: {user_modes.get(chat_id, 'обычный')}\n\n"
-    
-    if is_free_period_active(chat_id):
-        text += "🆓 *Бесплатный период активен*\n"
-    else:
-        text += "⭐ *Платная подписка активна*\n"
-    
-    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+@dp.message(F.text == "🌤️ Погода")
+async def handle_weather_button(message: types.Message):
+    weather_text = "🌤️ Выберите город или введите название другого города:"
+    await message.answer(weather_text, reply_markup=get_weather_keyboard())
 
 @dp.message(F.text == "💎 Тарифы")
 async def handle_tariffs(message: types.Message):
-    """Обработка кнопки тарифов"""
-    chat_id = message.chat.id
-    initialize_user_data(chat_id)
+    tariffs_text = "💎 Доступные тарифы:\n\n"
     
-    current_tariff = get_user_tariff(chat_id)
-    remaining_days = get_remaining_days(chat_id)
+    for tariff_id, tariff_info in TARIFFS.items():
+        tariffs_text += f"{tariff_info['name']}\n"
+        tariffs_text += f"Цена: {tariff_info['price']}\n"
+        tariffs_text += f"Лимит: {tariff_info['daily_limits']} запросов/день\n"
+        tariffs_text += f"Ожидание: {TARIFF_COOLDOWNS[tariff_id]} сек\n\n"
     
-    text = f"💎 *Доступные тарифы*\n\n"
-    text += f"📊 *Ваш текущий тариф*: {TARIFFS[current_tariff]['name']}\n"
-    text += f"📅 *Осталось дней*: {remaining_days}\n\n"
+    await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
+
+@dp.message(F.text == "⚙️ Настройки")
+async def handle_settings(message: types.Message):
+    settings_text = "⚙️ Настройки\n\nВыберите категорию:"
+    await message.answer(settings_text, reply_markup=get_settings_keyboard())
+
+@dp.message(F.text == "🛠️ Админ-панель")
+async def handle_admin_panel(message: types.Message):
+    """Обработка кнопки админ-панели"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
     
-    for tariff_key, tariff_info in TARIFFS.items():
-        text += f"{tariff_info['name']}\n"
-        text += f"💵 {tariff_info['price']}\n"
-        text += f"📝 {tariff_info['description']}\n"
-        
-        for feature in tariff_info['features']:
-            text += f"{feature}\n"
-        
-        text += "\n"
+    total_users = len(user_registration_date)
+    today_requests = sum(data.get("count", 0) for data in user_daily_requests.values() if data.get("date") == datetime.now().date())
+    active_subscriptions = sum(1 for end_date in user_subscription_end.values() if end_date > datetime.now())
     
-    await message.answer(text, reply_markup=get_tariffs_keyboard(), parse_mode="Markdown")
+    admin_text = (
+        "🛠️ Админ-панель GlemixAI\n\n"
+        f"👥 Пользователей: {total_users}\n"
+        f"📊 Запросов сегодня: {today_requests}\n"
+        f"💎 Активных подписок: {active_subscriptions}\n\n"
+        "Выберите действие:"
+    )
+    
+    await message.answer(admin_text, reply_markup=get_admin_keyboard())
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК НАСТРОЕК =====
 # =======================
-@dp.message(F.text == "🎭 Стиль общения")
-async def handle_communication_style(message: types.Message):
-    """Обработка кнопки стиля общения"""
-    await message.answer(
-        "🎭 Выберите стиль общения:\n\n"
-        "• ⚖️ Сбалансированный - универсальный стиль\n"
-        "• 💼 Профессиональный - деловой тон\n" 
-        "• 😊 Дружелюбный - неформальное общение\n"
-        "• 🎨 Креативный - творческие ответы",
-        reply_markup=get_style_keyboard()
+@dp.message(F.text == "🎭 Режимы AI")
+async def handle_ai_modes(message: types.Message):
+    modes_text = (
+        "🎭 Режимы AI\n\n"
+        "Выберите режим работы:\n"
+        "• 🧘 Спокойный - мягкие ответы\n"
+        "• 💬 Обычный - сбалансированные ответы\n"
+        "• ⚡ Короткий - краткие ответы\n"
+        "• 🧠 Умный - детальные аналитические ответы\n"
+        "• 📚 Помощь с уроками - максимальная помощь с домашними заданиями"
     )
+    await message.answer(modes_text, reply_markup=get_mode_keyboard())
 
-@dp.message(F.text == "⚖️ Сбалансированный")
-async def handle_balanced_style(message: types.Message):
-    """Обработка кнопки сбалансированного стиля"""
+@dp.message(F.text == "📚 Помощь с уроками")
+async def handle_homework_mode(message: types.Message):
+    """Активация режима помощи с уроками"""
     chat_id = message.chat.id
-    chat_style[chat_id] = "balanced"
-    save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("✅ Стиль общения изменен на: Сбалансированный", reply_markup=get_settings_keyboard())
-
-@dp.message(F.text == "💼 Профессиональный")
-async def handle_professional_style(message: types.Message):
-    """Обработка кнопки профессионального стиля"""
-    chat_id = message.chat.id
-    chat_style[chat_id] = "professional"
-    save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("✅ Стиль общения изменен на: Профессиональный", reply_markup=get_settings_keyboard())
-
-@dp.message(F.text == "😊 Дружелюбный")
-async def handle_friendly_style(message: types.Message):
-    """Обработка кнопки дружелюбного стиля"""
-    chat_id = message.chat.id
-    chat_style[chat_id] = "friendly"
-    save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("✅ Стиль общения изменен на: Дружелюбный", reply_markup=get_settings_keyboard())
-
-@dp.message(F.text == "🎨 Креативный")
-async def handle_creative_style(message: types.Message):
-    """Обработка кнопки креативного стиля"""
-    chat_id = message.chat.id
-    chat_style[chat_id] = "creative"
-    save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("✅ Стиль общения изменен на: Креативный", reply_markup=get_settings_keyboard())
-
-@dp.message(F.text == "🎛️ Режим работы")
-async def handle_work_mode(message: types.Message):
-    """Обработка кнопки режима работы"""
-    await message.answer(
-        "🎛️ Выберите режим работы:\n\n"
-        "• 💬 Обычный - стандартные ответы\n"
-        "• 📚 Помощь с уроками - детальные объяснения\n"
-        "• 🔍 Аналитический - глубокий анализ\n"
-        "• 🎯 Краткий - сжатые ответы",
-        reply_markup=get_mode_keyboard()
-    )
+    user_modes[chat_id] = "homework"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    
+    remaining_homework = get_remaining_homework_requests(chat_id)
+    is_free = is_free_period_active(chat_id)
+    
+    mode_text = "📚 Режим 'Помощь с уроками' активирован!\n\n"
+    mode_text += "Я буду максимально подробно помогать с:\n"
+    mode_text += "• Домашними заданиями\n• Учебными материалами\n"
+    mode_text += "• Объяснениями сложных тем\n• Решением задач\n\n"
+    
+    if is_free:
+        mode_text += f"⚠️ В бесплатной версии: {remaining_homework}/{HOMEWORK_FREE_LIMITS} запросов сегодня\n\n"
+    
+    mode_text += "Отправьте ваш учебный вопрос или задание:"
+    
+    await message.answer(mode_text, reply_markup=get_mode_keyboard())
 
 @dp.message(F.text == "💬 Обычный")
 async def handle_normal_mode(message: types.Message):
-    """Обработка кнопки обычного режима"""
     chat_id = message.chat.id
     user_modes[chat_id] = "обычный"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("✅ Режим изменен на: Обычный", reply_markup=get_settings_keyboard())
+    await message.answer("💬 Обычный режим активирован", reply_markup=get_mode_keyboard())
 
-@dp.message(F.text == "🔍 Аналитический")
-async def handle_analytical_mode(message: types.Message):
-    """Обработка кнопки аналитического режима"""
+@dp.message(F.text == "⚡ Короткий")
+async def handle_short_mode(message: types.Message):
     chat_id = message.chat.id
-    user_modes[chat_id] = "аналитический"
+    user_modes[chat_id] = "короткий"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("✅ Режим изменен на: Аналитический", reply_markup=get_settings_keyboard())
+    await message.answer("⚡ Короткий режим активирован", reply_markup=get_mode_keyboard())
 
-@dp.message(F.text == "🎯 Краткий")
-async def handle_concise_mode(message: types.Message):
-    """Обработка кнопки краткого режима"""
+@dp.message(F.text == "🧠 Умный")
+async def handle_smart_mode(message: types.Message):
     chat_id = message.chat.id
-    user_modes[chat_id] = "краткий"
+    user_modes[chat_id] = "умный"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("✅ Режим изменен на: Краткий", reply_markup=get_settings_keyboard())
+    await message.answer("🧠 Умный режим активирован", reply_markup=get_mode_keyboard())
 
-@dp.message(F.text == "🧹 Очистить историю")
-async def handle_clear_history(message: types.Message):
-    """Обработка кнопки очистки истории"""
+@dp.message(F.text == "🧘 Спокойный")
+async def handle_calm_mode(message: types.Message):
     chat_id = message.chat.id
-    
-    if chat_id in conversation_memory:
-        conversation_memory[chat_id] = []
-        save_data(conversation_memory, DATA_FILES['conversation_memory'])
-    
-    await message.answer("✅ История диалога очищена. Начинаем новый разговор!", reply_markup=get_settings_keyboard())
+    user_modes[chat_id] = "спокойный"
+    save_data(user_modes, DATA_FILES['user_modes'])
+    await message.answer("🧘 Спокойный режим активирован", reply_markup=get_mode_keyboard())
 
 @dp.message(F.text == "📊 Статистика")
-async def handle_statistics(message: types.Message):
-    """Обработка кнопки статистики"""
-    chat_id = message.chat.id
+async def handle_user_statistics(message: types.Message):
+    chat_id = message.from_user.id
     total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
     remaining_requests = get_remaining_daily_requests(chat_id)
     remaining_homework = get_remaining_homework_requests(chat_id)
@@ -1103,61 +1071,83 @@ async def handle_statistics(message: types.Message):
     
     await message.answer(stats_text, reply_markup=get_settings_keyboard())
 
+@dp.message(F.text == "🎨 Стиль общения")
+async def handle_communication_style(message: types.Message):
+    style_text = (
+        "🎨 Стиль общения\n\n"
+        "Выберите предпочтительный стиль:\n"
+        "• 💫 Дружелюбный - неформальное общение\n"
+        "• ⚖️ Сбалансированный - универсальный стиль\n"
+        "• 🎯 Деловой - профессиональный тон\n"
+        "• 🎨 Креативный - творческие ответы"
+    )
+    await message.answer(style_text, reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "💫 Дружелюбный")
+async def handle_friendly_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "friendly"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("💫 Стиль 'Дружелюбный' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "⚖️ Сбалансированный")
+async def handle_balanced_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "balanced"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("⚖️ Стиль 'Сбалансированный' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "🎯 Деловой")
+async def handle_business_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "business"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("🎯 Стиль 'Деловой' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "🎨 Креативный")
+async def handle_creative_style(message: types.Message):
+    chat_id = message.chat.id
+    chat_style[chat_id] = "creative"
+    save_data(chat_style, DATA_FILES['chat_style'])
+    await message.answer("🎨 Стиль 'Креативный' установлен", reply_markup=get_style_keyboard())
+
+@dp.message(F.text == "ℹ️ Информация")
+async def handle_info(message: types.Message):
+    info_text = (
+        "ℹ️ Информация о GlemixAI\n\n"
+        "🤖 Современный AI-помощник на базе Mistral AI\n\n"
+        "📋 Возможности обработки изображений:\n"
+        "• 📝 Распознавание текста\n"
+        "• 🔤 Перевод на разные языки\n"
+        "• 🧮 Суммирование чисел\n"
+        "• 📊 Анализ содержания\n"
+        "• ✂️ Сокращение текста\n\n"
+        "💡 Просто отправьте фото с текстом и укажите, что нужно сделать!\n\n"
+        "Версия: 2.1\n"
+        "Разработчик: Glemix Team"
+    )
+    await message.answer(info_text, reply_markup=get_settings_keyboard())
+
+@dp.message(F.text == "⚡ Быстрые команды")
+async def handle_quick_commands(message: types.Message):
+    await message.answer("⚡ Быстрые команды:", reply_markup=get_quick_commands_keyboard())
+
 # =======================
 # ===== ОБРАБОТКА КНОПОК ТАРИФОВ =====
 # =======================
-@dp.message(F.text == "🚀 Default")
-async def handle_default_tariff(message: types.Message):
-    """Обработка кнопки тарифа Default"""
-    chat_id = message.chat.id
-    if chat_id != ADMIN_ID:
-        activate_tariff(chat_id, "default", 30)
-        await message.answer("✅ Тариф 🚀 Default активирован на 30 дней!", reply_markup=get_tariffs_keyboard())
-    else:
-        await message.answer("👑 Администратор всегда на максимальном тарифе!", reply_markup=get_tariffs_keyboard())
-
-@dp.message(F.text == "⭐ Pro")
-async def handle_pro_tariff(message: types.Message):
-    """Обработка кнопки тарифа Pro"""
-    chat_id = message.chat.id
-    if chat_id != ADMIN_ID:
-        activate_tariff(chat_id, "pro", 30)
-        await message.answer("✅ Тариф ⭐ Pro активирован на 30 дней!", reply_markup=get_tariffs_keyboard())
-    else:
-        await message.answer("👑 Администратор всегда на максимальном тарифе!", reply_markup=get_tariffs_keyboard())
-
-@dp.message(F.text == "💎 Advanced")
-async def handle_advanced_tariff(message: types.Message):
-    """Обработка кнопки тарифа Advanced"""
-    chat_id = message.chat.id
-    if chat_id != ADMIN_ID:
-        activate_tariff(chat_id, "advanced", 30)
-        await message.answer("✅ Тариф 💎 Advanced активирован на 30 дней!", reply_markup=get_tariffs_keyboard())
-    else:
-        await message.answer("👑 Администратор всегда на максимальном тарифе!", reply_markup=get_tariffs_keyboard())
-
-@dp.message(F.text == "👑 Ultimate")
-async def handle_ultimate_tariff(message: types.Message):
-    """Обработка кнопки тарифа Ultimate"""
-    chat_id = message.chat.id
-    if chat_id != ADMIN_ID:
-        activate_tariff(chat_id, "ultimate", 30)
-        await message.answer("✅ Тариф 👑 Ultimate активирован на 30 дней!", reply_markup=get_tariffs_keyboard())
-    else:
-        await message.answer("👑 Администратор всегда на максимальном тарифе!", reply_markup=get_tariffs_keyboard())
-
 @dp.message(F.text == "📊 Мой тариф")
 async def handle_my_tariff(message: types.Message):
-    """Обработка кнопки моего тарифа"""
-    chat_id = message.chat.id
+    chat_id = message.from_user.id
     current_tariff = get_user_tariff(chat_id)
     remaining_days = get_remaining_days(chat_id)
     remaining_requests = get_remaining_daily_requests(chat_id)
+    remaining_homework = get_remaining_homework_requests(chat_id)
     
     tariff_text = f"📊 Ваш текущий тариф:\n\n"
     tariff_text += f"💎 {TARIFFS[current_tariff]['name']}\n"
     tariff_text += f"⏳ Осталось дней: {remaining_days}\n"
     tariff_text += f"📊 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
+    tariff_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS}\n"
     tariff_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
     tariff_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщений"
     
@@ -1166,14 +1156,15 @@ async def handle_my_tariff(message: types.Message):
 # =======================
 # ===== ОБРАБОТКА КНОПОК ПОГОДЫ =====
 # =======================
-@dp.message(F.text.in_(["🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон"]))
+@dp.message(F.text.in_(["🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио"]))
 async def handle_city_weather(message: types.Message):
-    """Обработка кнопок городов погоды"""
     city_mapping = {
         "🌆 Москва": "Москва",
         "🏛️ Санкт-Петербург": "Санкт-Петербург", 
         "🗽 Нью-Йорк": "Нью-Йорк",
-        "🌉 Лондон": "Лондон"
+        "🌉 Лондон": "Лондон",
+        "🗼 Париж": "Париж",
+        "🏯 Токио": "Токио"
     }
     
     city = city_mapping.get(message.text, message.text)
@@ -1192,22 +1183,143 @@ async def handle_city_weather(message: types.Message):
 
 @dp.message(F.text == "🌃 Другой город")
 async def handle_other_city(message: types.Message):
-    """Обработка кнопки другого города"""
-    await message.answer("🏙️ Введите название города (например: 'Погода в Москве' или просто 'Москва'):", 
-                        reply_markup=get_weather_keyboard())
+    await message.answer("🏙️ Введите название города (например: 'Погода в Москве' или просто 'Москва'):", reply_markup=get_weather_keyboard())
+
+# =======================
+# ===== ОБРАБОТКА КНОПОК БЫСТРЫХ КОМАНД =====
+# =======================
+@dp.message(F.text == "📝 Конвертер валют")
+async def handle_currency_converter(message: types.Message):
+    await message.answer("💱 Курсы валют:\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽", reply_markup=get_quick_commands_keyboard())
+
+@dp.message(F.text == "🎯 Случайный выбор")
+async def handle_random_choice(message: types.Message):
+    choices = ["🍎 Яблоко", "🍌 Банан", "🍊 Апельсин", "🍇 Виноград", "🍓 Клубника"]
+    await message.answer(f"🎯 Случайный выбор: {random.choice(choices)}", reply_markup=get_quick_commands_keyboard())
+
+@dp.message(F.text == "📅 Текущая дата")
+async def handle_current_date(message: types.Message):
+    current_date = datetime.now().strftime("%d.%m.%Y")
+    await message.answer(f"📅 Сегодня: {current_date}", reply_markup=get_quick_commands_keyboard())
+
+@dp.message(F.text == "⏰ Текущее время")
+async def handle_current_time(message: types.Message):
+    current_time = datetime.now().strftime("%H:%M:%S")
+    await message.answer(f"⏰ Текущее время: {current_time}", reply_markup=get_quick_commands_keyboard())
+
+@dp.message(F.text == "🔢 Калькулятор")
+async def handle_calculator(message: types.Message):
+    await message.answer("🔢 Введите математическое выражение (например: 2+2, 10*5, 100/4):", reply_markup=get_quick_commands_keyboard())
+
+@dp.message(F.text == "🎁 Сюрприз")
+async def handle_surprise(message: types.Message):
+    surprises = [
+        "🎉 Вот ваш сюрприз! Хорошего дня!",
+        "🌟 Удачи в делах!",
+        "💫 Пусть сегодняшний день будет прекрасным!",
+        "🎯 Вы лучший!",
+        "🌈 Желаю отличного настроения!"
+    ]
+    await message.answer(random.choice(surprises), reply_markup=get_quick_commands_keyboard())
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК НАЗАД =====
 # =======================
 @dp.message(F.text == "⬅️ Назад")
 async def handle_back(message: types.Message):
-    """Обработка кнопки назад"""
     await message.answer("⚙️ Настройки:", reply_markup=get_settings_keyboard())
 
-@dp.message(F.text == "⬅️ Назад в меню")
-async def handle_back_to_menu(message: types.Message):
-    """Обработка кнопки назад в меню"""
-    await message.answer("🎛️ Главное меню:", reply_markup=get_main_keyboard())
+@dp.message(F.text == "⬅️ Главное меню")
+async def handle_admin_back(message: types.Message):
+    """Возврат в главное меню из админ-панели"""
+    await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
+
+# =======================
+# ===== ОБРАБОТКА АДМИН-ПАНЕЛИ =====
+# =======================
+@dp.message(F.text == "👥 Статистика пользователей")
+async def handle_user_stats(message: types.Message):
+    """Статистика пользователей"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_users = len(user_registration_date)
+    active_today = 0
+    today = datetime.now().date()
+    
+    for user_id, daily_data in user_daily_requests.items():
+        if daily_data.get("date") == today and daily_data.get("count", 0) > 0:
+            active_today += 1
+    
+    # Статистика по тарифам
+    tariff_stats = {}
+    for user_id in user_registration_date:
+        tariff = get_user_tariff(user_id)
+        tariff_stats[tariff] = tariff_stats.get(tariff, 0) + 1
+    
+    stats_text = f"📊 Статистика пользователей:\n\n"
+    stats_text += f"👥 Всего пользователей: {total_users}\n"
+    stats_text += f"🟢 Активных сегодня: {active_today}\n"
+    stats_text += f"📅 Новых за сегодня: {sum(1 for reg_date in user_registration_date.values() if isinstance(reg_date, datetime) and reg_date.date() == today)}\n\n"
+    
+    stats_text += "💎 Распределение по тарифам:\n"
+    for tariff, count in tariff_stats.items():
+        stats_text += f"• {TARIFFS[tariff]['name']}: {count} пользователей\n"
+    
+    await message.answer(stats_text, reply_markup=get_admin_keyboard())
+
+@dp.message(F.text == "📊 Общая статистика")
+async def handle_general_stats(message: types.Message):
+    """Общая статистика"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    total_requests = sum(data.get("total", 0) for data in user_requests_count.values())
+    today_requests = sum(data.get("count", 0) for data in user_daily_requests.values() if data.get("date") == datetime.now().date())
+    
+    # Самые активные пользователи
+    top_users = sorted(user_requests_count.items(), key=lambda x: x[1].get("total", 0), reverse=True)[:5]
+    
+    stats_text = f"📈 Общая статистика:\n\n"
+    stats_text += f"🔄 Всего запросов: {total_requests}\n"
+    stats_text += f"📊 Запросов сегодня: {today_requests}\n"
+    stats_text += f"💾 Активных диалогов: {len(conversation_memory)}\n\n"
+    
+    stats_text += "🏆 Топ-5 активных пользователей:\n"
+    for i, (user_id, data) in enumerate(top_users, 1):
+        try:
+            user = await bot.get_chat(user_id)
+            username = f"@{user.username}" if user.username else user.first_name
+            stats_text += f"{i}. {username}: {data.get('total', 0)} запросов\n"
+        except:
+            stats_text += f"{i}. ID {user_id}: {data.get('total', 0)} запросов\n"
+    
+    await message.answer(stats_text, reply_markup=get_admin_keyboard())
+
+@dp.message(F.text == "📋 Логи действий")
+async def handle_action_logs(message: types.Message):
+    """Показывает логи действий админа"""
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    if not admin_logs:
+        await message.answer("📋 Логи действий пусты", reply_markup=get_admin_keyboard())
+        return
+    
+    # Показываем последние 10 записей
+    recent_logs = admin_logs[-10:]
+    logs_text = "📋 Последние действия админа:\n\n"
+    
+    for log in reversed(recent_logs):
+        timestamp = datetime.fromisoformat(log["timestamp"]).strftime("%H:%M:%S")
+        action = log["action"]
+        target = f" (пользователь {log['target_user']})" if log.get('target_user') else ""
+        logs_text += f"🕒 {timestamp}: {action}{target}\n"
+    
+    await message.answer(logs_text, reply_markup=get_admin_keyboard())
 
 # =======================
 # ===== ОСНОВНАЯ ЛОГИКА ОБРАБОТКИ =====
@@ -1221,7 +1333,7 @@ async def handle_photo(message: types.Message):
     # Проверяем возможность сделать запрос
     can_request, error_msg = can_user_make_request(chat_id)
     if not can_request:
-        await message.answer(error_msg, reply_markup=get_main_keyboard())
+        await message.answer(error_msg, reply_markup=get_main_keyboard(chat_id))
         return
     
     # Проверяем кулдаун
@@ -1231,7 +1343,7 @@ async def handle_photo(message: types.Message):
         time_passed = current_time - user_last_request[chat_id]
         if time_passed < cooldown:
             remaining = cooldown - time_passed
-            await message.answer(f"⏳ Подождите {remaining:.1f} секунд перед следующим запросом.", reply_markup=get_main_keyboard())
+            await message.answer(f"⏳ Подождите {remaining:.1f} секунд перед следующим запросом.", reply_markup=get_main_keyboard(chat_id))
             return
     
     user_last_request[chat_id] = current_time
@@ -1259,7 +1371,7 @@ async def handle_photo(message: types.Message):
         
         # Отправляем результат
         response = create_smart_response(result, "photo_text")
-        await message.answer(response, reply_markup=get_main_keyboard())
+        await message.answer(response, reply_markup=get_main_keyboard(chat_id))
         
         # Обновляем статистику
         increment_user_requests(chat_id)
@@ -1267,7 +1379,7 @@ async def handle_photo(message: types.Message):
     except Exception as e:
         logger.error(f"Photo processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Ошибка обработки изображения. Пожалуйста, попробуйте еще раз.", reply_markup=get_main_keyboard())
+        await message.answer("❌ Ошибка обработки изображения. Пожалуйста, попробуйте еще раз.", reply_markup=get_main_keyboard(chat_id))
 
 @dp.message(F.voice)
 async def handle_voice(message: types.Message):
@@ -1278,7 +1390,7 @@ async def handle_voice(message: types.Message):
     # Проверяем возможность сделать запрос
     can_request, error_msg = can_user_make_request(chat_id)
     if not can_request:
-        await message.answer(error_msg, reply_markup=get_main_keyboard())
+        await message.answer(error_msg, reply_markup=get_main_keyboard(chat_id))
         return
     
     # Проверяем кулдаун
@@ -1288,7 +1400,7 @@ async def handle_voice(message: types.Message):
         time_passed = current_time - user_last_request[chat_id]
         if time_passed < cooldown:
             remaining = cooldown - time_passed
-            await message.answer(f"⏳ Подождите {remaining:.1f} секунд перед следующим запросом.", reply_markup=get_main_keyboard())
+            await message.answer(f"⏳ Подождите {remaining:.1f} секунд перед следующим запросом.", reply_markup=get_main_keyboard(chat_id))
             return
     
     user_last_request[chat_id] = current_time
@@ -1313,7 +1425,7 @@ async def handle_voice(message: types.Message):
         
         # Отправляем результат
         response = create_smart_response(transcribed_text, "voice")
-        await message.answer(response, reply_markup=get_main_keyboard())
+        await message.answer(response, reply_markup=get_main_keyboard(chat_id))
         
         # Обновляем статистику
         increment_user_requests(chat_id)
@@ -1321,7 +1433,7 @@ async def handle_voice(message: types.Message):
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("🎤 Голосовое сообщение получено! Если вам нужен конкретный ответ, пожалуйста, уточните вопрос текстом.", reply_markup=get_main_keyboard())
+        await message.answer("🎤 Голосовое сообщение получено! Если вам нужен конкретный ответ, пожалуйста, уточните вопрос текстом.", reply_markup=get_main_keyboard(chat_id))
 
 @dp.message(F.text)
 async def handle_text(message: types.Message):
@@ -1333,19 +1445,22 @@ async def handle_text(message: types.Message):
     # Игнорируем кнопки, которые уже обработаны
     button_texts = [
         # Главное меню
-        "💬 Обычный чат", "📚 Помощь с уроками", "📸 Обработать фото", "🎤 Голосовое сообщение",
-        "🌤️ Узнать погоду", "⚙️ Настройки", "📊 Профиль", "💎 Тарифы",
+        "🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤️ Погода", 
+        "💎 Тарифы", "🛠️ Админ-панель",
         # Настройки
-        "🎭 Стиль общения", "🎛️ Режим работы", "🧹 Очистить историю", "📊 Статистика",
-        "⬅️ Назад", "⬅️ Назад в меню",
-        # Стили
-        "⚖️ Сбалансированный", "💼 Профессиональный", "😊 Дружелюбный", "🎨 Креативный",
-        # Режимы
-        "💬 Обычный", "🔍 Аналитический", "🎯 Краткий",
+        "🎭 Режимы AI", "📊 Статистика", "🎨 Стиль общения", "ℹ️ Информация", "⚡ Быстрые команды", "⬅️ Назад",
+        # Режимы AI
+        "🧘 Спокойный", "💬 Обычный", "⚡ Короткий", "🧠 Умный", "📚 Помощь с уроками",
+        # Стили общения
+        "💫 Дружелюбный", "⚖️ Сбалансированный", "🎯 Деловой", "🎨 Креативный",
         # Тарифы
         "🚀 Default", "⭐ Pro", "💎 Advanced", "👑 Ultimate", "📊 Мой тариф",
         # Погода
-        "🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🌃 Другой город"
+        "🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио", "🌃 Другой город",
+        # Быстрые команды
+        "📝 Конвертер валют", "🎯 Случайный выбор", "📅 Текущая дата", "⏰ Текущее время", "🔢 Калькулятор", "🎁 Сюрприз",
+        # Админ-панель
+        "👥 Статистика пользователей", "📊 Общая статистика", "📋 Логи действий", "⬅️ Главное меню"
     ]
     
     if user_text in button_texts:
@@ -1354,13 +1469,13 @@ async def handle_text(message: types.Message):
     # Проверяем возможность сделать запрос
     current_mode = user_modes.get(chat_id, "обычный")
     
-    if current_mode == "помощь с уроками":
+    if current_mode == "homework":
         can_request, error_msg = can_user_make_homework_request(chat_id)
     else:
         can_request, error_msg = can_user_make_request(chat_id)
     
     if not can_request:
-        await message.answer(error_msg, reply_markup=get_main_keyboard())
+        await message.answer(error_msg, reply_markup=get_main_keyboard(chat_id))
         return
     
     # Проверяем кулдаун
@@ -1370,7 +1485,7 @@ async def handle_text(message: types.Message):
         time_passed = current_time - user_last_request[chat_id]
         if time_passed < cooldown:
             remaining = cooldown - time_passed
-            await message.answer(f"⏳ Подождите {remaining:.1f} секунд перед следующим запросом.", reply_markup=get_main_keyboard())
+            await message.answer(f"⏳ Подождите {remaining:.1f} секунд перед следующим запросом.", reply_markup=get_main_keyboard(chat_id))
             return
     
     user_last_request[chat_id] = current_time
@@ -1392,7 +1507,7 @@ async def handle_text(message: types.Message):
             thinking_msg_id = await send_thinking_message(chat_id)
             weather_info = await get_detailed_weather(city)
             await delete_thinking_message(chat_id, thinking_msg_id)
-            await message.answer(weather_info, reply_markup=get_main_keyboard())
+            await message.answer(weather_info, reply_markup=get_main_keyboard(chat_id))
             increment_user_requests(chat_id)
             return
     
@@ -1402,7 +1517,7 @@ async def handle_text(message: types.Message):
     try:
         # Определяем тип вопроса
         question_type = "normal"
-        if current_mode == "помощь с уроками":
+        if current_mode == "homework":
             question_type = "homework"
             increment_homework_requests(chat_id)
         elif any(word in user_text_lower for word in ["посчитай", "сколько будет", "вычисли"]):
@@ -1420,7 +1535,7 @@ async def handle_text(message: types.Message):
         final_response = create_smart_response(ai_response, question_type)
         
         # Отправляем ответ
-        await message.answer(final_response, reply_markup=get_main_keyboard())
+        await message.answer(final_response, reply_markup=get_main_keyboard(chat_id))
         
         # Обновляем статистику
         increment_user_requests(chat_id)
@@ -1428,7 +1543,7 @@ async def handle_text(message: types.Message):
     except Exception as e:
         logger.error(f"Text processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("❌ Произошла ошибка при обработке запроса. Пожалуйста, попробуйте еще раз.", reply_markup=get_main_keyboard())
+        await message.answer("❌ Произошла ошибка при обработке запроса. Пожалуйста, попробуйте еще раз.", reply_markup=get_main_keyboard(chat_id))
 
 # =======================
 # ===== ЗАПУСК БОТА =====
