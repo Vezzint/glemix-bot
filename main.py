@@ -111,6 +111,11 @@ TARIFF_MEMORY = {
 # Лимиты для режима "Помощь с уроками" в бесплатной версии
 HOMEWORK_FREE_LIMITS = 9
 
+# Промокоды
+PROMO_CODES = {
+    "УЧЕБА": {"requests": 13, "days": 2, "description": "13 запросов в режиме помощи с уроками на 2 дня"}
+}
+
 model = "mistral-large-latest"
 client = Mistral(api_key=mistral_api_key)
 
@@ -126,7 +131,8 @@ DATA_FILES = {
     'user_daily_requests': 'user_daily_requests.pkl',
     'admin_logs': 'admin_logs.pkl',
     'admin_temp_data': 'admin_temp_data.pkl',
-    'user_homework_requests': 'user_homework_requests.pkl'
+    'user_homework_requests': 'user_homework_requests.pkl',
+    'user_promo_codes': 'user_promo_codes.pkl'
 }
 
 # =======================
@@ -319,6 +325,10 @@ def initialize_user_data(chat_id: int):
     if chat_id not in user_homework_requests:
         user_homework_requests[chat_id] = {"used": 0, "last_reset": datetime.now().date()}
         save_data(user_homework_requests, DATA_FILES['user_homework_requests'])
+    
+    if chat_id not in user_promo_codes:
+        user_promo_codes[chat_id] = {}
+        save_data(user_promo_codes, DATA_FILES['user_promo_codes'])
 
 def increment_user_requests(chat_id: int):
     """Увеличивает счетчик запросов пользователя"""
@@ -342,14 +352,23 @@ def increment_homework_requests(chat_id: int):
 
 def get_remaining_homework_requests(chat_id: int) -> int:
     """Возвращает оставшиеся запросы в режиме помощи с уроками"""
+    if chat_id == ADMIN_ID:
+        return 99999  # Админ без ограничений
+    
     initialize_user_data(chat_id)
+    
+    # Проверяем промокоды
+    promo_requests = 0
+    for promo_code, promo_data in user_promo_codes.get(chat_id, {}).items():
+        if promo_data.get("expires") >= datetime.now().date():
+            promo_requests += promo_data.get("remaining", 0)
     
     today = datetime.now().date()
     if user_homework_requests[chat_id].get("last_reset") != today:
-        return HOMEWORK_FREE_LIMITS
+        return HOMEWORK_FREE_LIMITS + promo_requests
     
     used = user_homework_requests[chat_id].get("used", 0)
-    return max(0, HOMEWORK_FREE_LIMITS - used)
+    return max(0, HOMEWORK_FREE_LIMITS + promo_requests - used)
 
 # Загружаем данные при старте
 user_registration_date = load_data(DATA_FILES['user_registration_date'], {})
@@ -363,10 +382,12 @@ user_daily_requests = load_data(DATA_FILES['user_daily_requests'], {})
 admin_logs = load_data(DATA_FILES['admin_logs'], [])
 admin_temp_data = load_data(DATA_FILES['admin_temp_data'], {})
 user_homework_requests = load_data(DATA_FILES['user_homework_requests'], {})
+user_promo_codes = load_data(DATA_FILES['user_promo_codes'], {})
 
 # Переменные для временных данных
 user_last_request: Dict[int, float] = {}
 user_thinking_messages: Dict[int, int] = {}
+user_awaiting_promo: Dict[int, bool] = {}
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -394,6 +415,9 @@ def get_user_tariff(chat_id: int) -> str:
 
 def get_user_cooldown(chat_id: int) -> int:
     """Возвращает время ожидания для пользователя"""
+    if chat_id == ADMIN_ID:
+        return 0  # Админ без кулдауна
+    
     tariff = get_user_tariff(chat_id)
     return TARIFF_COOLDOWNS.get(tariff, 5)
 
@@ -404,11 +428,17 @@ def get_user_memory_limit(chat_id: int) -> int:
 
 def get_user_daily_limit(chat_id: int) -> int:
     """Возвращает дневной лимит запросов"""
+    if chat_id == ADMIN_ID:
+        return 99999  # Админ без ограничений
+    
     tariff = get_user_tariff(chat_id)
     return TARIFFS[tariff]["daily_limits"]
 
 def get_remaining_daily_requests(chat_id: int) -> int:
     """Возвращает оставшиеся запросы на сегодня"""
+    if chat_id == ADMIN_ID:
+        return 99999  # Админ без ограничений
+    
     today = datetime.now().date()
     daily_data = user_daily_requests.get(chat_id, {})
     if daily_data.get("date") != today:
@@ -417,6 +447,9 @@ def get_remaining_daily_requests(chat_id: int) -> int:
 
 def increment_daily_requests(chat_id: int):
     """Увеличивает счетчик дневных запросов"""
+    if chat_id == ADMIN_ID:
+        return  # Админ не тратит запросы
+    
     today = datetime.now().date()
     if chat_id not in user_daily_requests or user_daily_requests[chat_id].get("date") != today:
         user_daily_requests[chat_id] = {"date": today, "count": 1}
@@ -470,7 +503,10 @@ def get_remaining_free_days(chat_id: int) -> int:
 
 def can_user_make_request(chat_id: int) -> tuple[bool, str]:
     """Проверяет может ли пользователь сделать запрос"""
-    if not is_subscription_active(chat_id) and chat_id != ADMIN_ID:
+    if chat_id == ADMIN_ID:
+        return True, ""  # Админ всегда может
+    
+    if not is_subscription_active(chat_id):
         remaining_free = get_remaining_free_days(chat_id)
         if remaining_free <= 0:
             return False, f"Бесплатный период закончился. Для продолжения работы активируйте один из тарифов."
@@ -487,10 +523,12 @@ def can_user_make_request(chat_id: int) -> tuple[bool, str]:
 
 def can_user_make_homework_request(chat_id: int) -> tuple[bool, str]:
     """Проверяет может ли пользователь сделать запрос в режиме помощи с уроками"""
-    if not is_subscription_active(chat_id) and chat_id != ADMIN_ID:
-        remaining_homework = get_remaining_homework_requests(chat_id)
-        if remaining_homework <= 0:
-            return False, f"Лимит запросов в режиме 'Помощь с уроками' исчерпан ({HOMEWORK_FREE_LIMITS}/день). Активируйте тариф для снятия ограничений."
+    if chat_id == ADMIN_ID:
+        return True, ""  # Админ всегда может
+    
+    remaining_homework = get_remaining_homework_requests(chat_id)
+    if remaining_homework <= 0:
+        return False, f"Лимит запросов в режиме 'Помощь с уроками' исчерпан ({HOMEWORK_FREE_LIMITS}/день). Активируйте тариф или используйте промокод для снятия ограничений."
     
     return True, ""
 
@@ -592,7 +630,7 @@ async def transcribe_audio_with_mistral(audio_bytes: bytes) -> str:
         
         # Используем модель для обработки аудио
         response = client.chat.complete(
-            model="pixtral-12b-2409",  # Эта модель поддерживает аудио
+            model="pixtral-12b-2409",
             messages=messages,
             max_tokens=1000
         )
@@ -684,7 +722,7 @@ def create_smart_response(text: str, question_type: str = "normal") -> str:
     elif question_type == "photo_text":
         return f"📝 Результат обработки изображения:\n\n{text}"
     elif question_type == "homework":
-        return f"📚 Помощь с уроками:\n\n{text}"
+        return f"📚 Ответ на задание:\n\n{text}"
     elif question_type == "voice":
         return text
     elif question_type == "simple":
@@ -711,7 +749,7 @@ async def delete_thinking_message(chat_id: int, message_id: int):
     except Exception as e:
         logger.error(f"Error deleting thinking message: {e}")
 
-async def get_ai_response(message_text: str, chat_id: int) -> str:
+async def get_ai_response(message_text: str, chat_id: int, mode: str = "обычный") -> str:
     """Получает ответ от AI с учетом контекста и стиля"""
     try:
         # Получаем историю сообщений
@@ -722,18 +760,30 @@ async def get_ai_response(message_text: str, chat_id: int) -> str:
         if len(memory) > memory_limit:
             memory = memory[-memory_limit:]
         
-        # Получаем стиль общения
-        style = chat_style.get(chat_id, "balanced")
-        
-        # Создаем системное сообщение в зависимости от стиля
-        if style == "professional":
-            system_message = "Ты профессиональный ассистент. Отвечай четко, структурированно и по делу. Избегай лишних эмоций."
-        elif style == "friendly":
-            system_message = "Ты дружелюбный и общительный ассистент. Отвечай тепло, с эмодзи и поддержкой. Будь позитивным."
-        elif style == "creative":
-            system_message = "Ты креативный и вдохновляющий ассистент. Отвечай нестандартно, используй метафоры и будь оригинальным."
-        else:  # balanced
-            system_message = "Ты полезный AI-ассистент. Отвечай информативно, но естественно. Поддерживай беседу и помогай решать задачи."
+        # Создаем системное сообщение в зависимости от режима
+        if mode == "homework":
+            system_message = """Ты - опытный преподаватель. Отвечай максимально четко и по делу. 
+
+ПРАВИЛА ОТВЕТА:
+1. Давай ПРЯМОЙ ОТВЕТ на вопрос/задачу
+2. Без лишних вводных слов и объяснений 
+3. Если нужно решение - покажи только шаги решения
+4. Формулы, вычисления, ответы - выделяй четко
+5. Без фраз "итак", "итак давайте", "ну что же" и т.д.
+6. Только суть: условие → решение → ответ
+
+Пример хорошего ответа:
+"Задача: Найти площадь треугольника со сторонами 5, 6, 7 см.
+
+Решение по формуле Герона:
+p = (5+6+7)/2 = 9
+S = √(9×(9-5)×(9-6)×(9-7)) = √(9×4×3×2) = √216 ≈ 14.7
+
+Ответ: 14.7 см²"
+
+Отвечай ТОЛЬКО так - кратко и по делу!"""
+        else:
+            system_message = "Ты полезный AI-ассистент. Отвечай информативно, но без лишних слов. Будь краток и точен."
         
         # Собираем все сообщения
         messages = [{"role": "system", "content": system_message}]
@@ -778,7 +828,7 @@ def get_main_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
     keyboard = [
         [KeyboardButton(text="🚀 Начать работу"), KeyboardButton(text="🌟 Обо мне")],
         [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Помощь"), KeyboardButton(text="🌤️ Погода")],
-        [KeyboardButton(text="💎 Тарифы")]
+        [KeyboardButton(text="💎 Тарифы"), KeyboardButton(text="🎁 Промокоды")]
     ]
     
     if chat_id == ADMIN_ID:
@@ -887,7 +937,7 @@ async def cmd_start(message: types.Message):
     
     if is_free:
         welcome_text += f"🎁 Бесплатный период: {remaining_days} дней\n"
-        welcome_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS} запросов\n"
+        welcome_text += f"📚 Помощь с уроками: {remaining_homework} запросов\n"
     else:
         welcome_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
         welcome_text += f"📅 Осталось дней: {remaining_days}\n"
@@ -962,6 +1012,19 @@ async def handle_tariffs(message: types.Message):
     
     await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
 
+@dp.message(F.text == "🎁 Промокоды")
+async def handle_promo_codes(message: types.Message):
+    """Обработка кнопки промокодов"""
+    chat_id = message.chat.id
+    user_awaiting_promo[chat_id] = True
+    
+    promo_text = "🎁 Активация промокода\n\n"
+    promo_text += "Доступные промокоды:\n"
+    promo_text += "• УЧЕБА - 13 запросов в режиме помощи с уроками на 2 дня\n\n"
+    promo_text += "Введите промокод:"
+    
+    await message.answer(promo_text, reply_markup=get_main_keyboard(chat_id))
+
 @dp.message(F.text == "⚙️ Настройки")
 async def handle_settings(message: types.Message):
     settings_text = "⚙️ Настройки\n\nВыберите категорию:"
@@ -989,6 +1052,44 @@ async def handle_admin_panel(message: types.Message):
     await message.answer(admin_text, reply_markup=get_admin_keyboard())
 
 # =======================
+# ===== ОБРАБОТКА ПРОМОКОДОВ =====
+# =======================
+@dp.message(lambda message: user_awaiting_promo.get(message.chat.id, False))
+async def handle_promo_code_input(message: types.Message):
+    """Обработка ввода промокода"""
+    chat_id = message.chat.id
+    promo_code = message.text.strip().upper()
+    
+    user_awaiting_promo[chat_id] = False
+    
+    if promo_code in PROMO_CODES:
+        promo_info = PROMO_CODES[promo_code]
+        
+        # Проверяем, не активирован ли уже промокод
+        if chat_id not in user_promo_codes:
+            user_promo_codes[chat_id] = {}
+        
+        if promo_code not in user_promo_codes[chat_id]:
+            user_promo_codes[chat_id][promo_code] = {
+                "remaining": promo_info["requests"],
+                "expires": (datetime.now() + timedelta(days=promo_info["days"])).date(),
+                "activated": datetime.now()
+            }
+            save_data(user_promo_codes, DATA_FILES['user_promo_codes'])
+            
+            await message.answer(
+                f"✅ Промокод активирован!\n\n"
+                f"🎁 Вы получили: {promo_info['requests']} запросов в режиме помощи с уроками\n"
+                f"⏳ Действует: {promo_info['days']} дня\n\n"
+                f"Теперь у вас {get_remaining_homework_requests(chat_id)} запросов в режиме помощи с уроками",
+                reply_markup=get_main_keyboard(chat_id)
+            )
+        else:
+            await message.answer("❌ Этот промокод уже был активирован ранее.", reply_markup=get_main_keyboard(chat_id))
+    else:
+        await message.answer("❌ Неверный промокод. Попробуйте еще раз.", reply_markup=get_main_keyboard(chat_id))
+
+# =======================
 # ===== ОБРАБОТКА КНОПОК НАСТРОЕК =====
 # =======================
 @dp.message(F.text == "🎭 Режимы AI")
@@ -1012,16 +1113,12 @@ async def handle_homework_mode(message: types.Message):
     save_data(user_modes, DATA_FILES['user_modes'])
     
     remaining_homework = get_remaining_homework_requests(chat_id)
-    is_free = is_free_period_active(chat_id)
     
     mode_text = "📚 Режим 'Помощь с уроками' активирован!\n\n"
     mode_text += "Я буду максимально подробно помогать с:\n"
     mode_text += "• Домашними заданиями\n• Учебными материалами\n"
     mode_text += "• Объяснениями сложных тем\n• Решением задач\n\n"
-    
-    if is_free:
-        mode_text += f"⚠️ В бесплатной версии: {remaining_homework}/{HOMEWORK_FREE_LIMITS} запросов сегодня\n\n"
-    
+    mode_text += f"📊 Осталось запросов: {remaining_homework}\n\n"
     mode_text += "Отправьте ваш учебный вопрос или задание:"
     
     await message.answer(mode_text, reply_markup=get_mode_keyboard())
@@ -1065,7 +1162,7 @@ async def handle_user_statistics(message: types.Message):
     stats_text = f"📊 Ваша статистика:\n\n"
     stats_text += f"📈 Всего запросов: {total_requests}\n"
     stats_text += f"📅 Осталось сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
-    stats_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS}\n"
+    stats_text += f"📚 Помощь с уроками: {remaining_homework} запросов\n"
     stats_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
     stats_text += f"⏳ Осталось дней: {get_remaining_days(chat_id)}"
     
@@ -1147,7 +1244,7 @@ async def handle_my_tariff(message: types.Message):
     tariff_text += f"💎 {TARIFFS[current_tariff]['name']}\n"
     tariff_text += f"⏳ Осталось дней: {remaining_days}\n"
     tariff_text += f"📊 Запросов сегодня: {remaining_requests}/{TARIFFS[current_tariff]['daily_limits']}\n"
-    tariff_text += f"📚 Помощь с уроками: {remaining_homework}/{HOMEWORK_FREE_LIMITS}\n"
+    tariff_text += f"📚 Помощь с уроками: {remaining_homework} запросов\n"
     tariff_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
     tariff_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщений"
     
@@ -1433,7 +1530,7 @@ async def handle_voice(message: types.Message):
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
         await delete_thinking_message(chat_id, thinking_msg_id)
-        await message.answer("🎤 Голосовое сообщение получено! Если вам нужен конкретный ответ, пожалуйста, уточните вопрос текстом.", reply_markup=get_main_keyboard(chat_id))
+        await message.answer("🎤 Голосовое сообщение получено! Если вам нужен ответ на конкретный вопрос, пожалуйста, уточните его текстом.", reply_markup=get_main_keyboard(chat_id))
 
 @dp.message(F.text)
 async def handle_text(message: types.Message):
@@ -1446,7 +1543,7 @@ async def handle_text(message: types.Message):
     button_texts = [
         # Главное меню
         "🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤️ Погода", 
-        "💎 Тарифы", "🛠️ Админ-панель",
+        "💎 Тарифы", "🎁 Промокоды", "🛠️ Админ-панель",
         # Настройки
         "🎭 Режимы AI", "📊 Статистика", "🎨 Стиль общения", "ℹ️ Информация", "⚡ Быстрые команды", "⬅️ Назад",
         # Режимы AI
@@ -1511,6 +1608,29 @@ async def handle_text(message: types.Message):
             increment_user_requests(chat_id)
             return
     
+    # Калькулятор
+    if any(word in user_text_lower for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate"]):
+        try:
+            # Извлекаем математическое выражение
+            expr = user_text_lower
+            for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate"]:
+                expr = expr.replace(word, "")
+            expr = expr.strip()
+            
+            # Проверяем безопасность выражения
+            allowed_chars = set('0123456789+-*/.() ')
+            if all(c in allowed_chars for c in expr):
+                result = eval(expr)
+                await message.answer(f"🔢 {expr} = {result}", reply_markup=get_main_keyboard(chat_id))
+                increment_user_requests(chat_id)
+                return
+            else:
+                await message.answer("❌ Небезопасное выражение", reply_markup=get_main_keyboard(chat_id))
+                return
+        except:
+            await message.answer("❌ Не могу вычислить выражение", reply_markup=get_main_keyboard(chat_id))
+            return
+    
     # Отправляем сообщение "Думаю..."
     thinking_msg_id = await send_thinking_message(chat_id)
     
@@ -1519,14 +1639,21 @@ async def handle_text(message: types.Message):
         question_type = "normal"
         if current_mode == "homework":
             question_type = "homework"
-            increment_homework_requests(chat_id)
-        elif any(word in user_text_lower for word in ["посчитай", "сколько будет", "вычисли"]):
-            question_type = "calculation"
-        elif len(user_text) < 20 and "?" not in user_text:
-            question_type = "simple"
+            # Используем промокодные запросы если есть
+            used_promo = False
+            for promo_code, promo_data in user_promo_codes.get(chat_id, {}).items():
+                if promo_data.get("remaining", 0) > 0 and promo_data.get("expires") >= datetime.now().date():
+                    user_promo_codes[chat_id][promo_code]["remaining"] -= 1
+                    used_promo = True
+                    break
+            
+            if not used_promo and chat_id != ADMIN_ID:
+                increment_homework_requests(chat_id)
+        else:
+            increment_user_requests(chat_id)
         
         # Получаем ответ от AI
-        ai_response = await get_ai_response(user_text, chat_id)
+        ai_response = await get_ai_response(user_text, chat_id, current_mode)
         
         # Удаляем сообщение "Думаю..."
         await delete_thinking_message(chat_id, thinking_msg_id)
@@ -1536,9 +1663,6 @@ async def handle_text(message: types.Message):
         
         # Отправляем ответ
         await message.answer(final_response, reply_markup=get_main_keyboard(chat_id))
-        
-        # Обновляем статистику
-        increment_user_requests(chat_id)
         
     except Exception as e:
         logger.error(f"Text processing error: {e}")
