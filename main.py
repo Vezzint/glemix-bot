@@ -111,11 +111,6 @@ TARIFF_MEMORY = {
 # Лимиты для режима "Помощь с уроками" в бесплатной версии
 HOMEWORK_FREE_LIMITS = 9
 
-# Промокоды
-PROMO_CODES = {
-    "УЧЕБА": {"requests": 13, "days": 2, "description": "13 запросов в режиме помощи с уроками на 2 дня"}
-}
-
 model = "mistral-large-latest"
 client = Mistral(api_key=mistral_api_key)
 
@@ -132,7 +127,8 @@ DATA_FILES = {
     'admin_logs': 'admin_logs.pkl',
     'admin_temp_data': 'admin_temp_data.pkl',
     'user_homework_requests': 'user_homework_requests.pkl',
-    'user_promo_codes': 'user_promo_codes.pkl'
+    'user_promo_codes': 'user_promo_codes.pkl',
+    'user_language': 'user_language.pkl'
 }
 
 # =======================
@@ -140,99 +136,98 @@ DATA_FILES = {
 # =======================
 CITY_MAPPING = {
     # Российские города
-    "москва": "Moscow", "мск": "Moscow",
-    "санкт-петербург": "Saint Petersburg", "питер": "Saint Petersburg", "спб": "Saint Petersburg",
-    "новосибирск": "Novosibirsk", "нск": "Novosibirsk",
-    "екатеринбург": "Yekaterinburg", "екб": "Yekaterinburg",
-    "казань": "Kazan",
-    "нижний новгород": "Nizhny Novgorod", "нижний": "Nizhny Novgorod",
-    "челябинск": "Chelyabinsk",
-    "самара": "Samara",
-    "омск": "Omsk", 
-    "ростов-на-дону": "Rostov-on-Don", "ростов": "Rostov-on-Don",
-    "уфа": "Ufa",
-    "красноярск": "Krasnoyarsk",
-    "пермь": "Perm",
-    "воронеж": "Voronezh",
-    "волгоград": "Volgograd",
-    "краснодар": "Krasnodar",
-    "саратов": "Saratov",
-    "тюмень": "Tyumen",
-    "тольятти": "Tolyatti",
-    "ижевск": "Izhevsk",
-    "барнаул": "Barnaul",
-    "ульяновск": "Ulyanovsk",
-    "иркутск": "Irkutsk",
-    "хабаровск": "Khabarovsk",
-    "ярославль": "Yaroslavl",
-    "владивосток": "Vladivostok",
-    "махачкала": "Makhachkala",
-    "томск": "Tomsk",
-    "оренбург": "Orenburg",
-    "кемерово": "Kemerovo",
-    "новокузнецк": "Novokuznetsk",
-    "рязань": "Ryazan",
-    "астрахань": "Astrakhan",
-    "набережные челны": "Naberezhnye Chelny",
-    "пенза": "Penza",
-    "киров": "Kirov",
-    "липецк": "Lipetsk",
-    "чебоксары": "Cheboksary",
-    "калининград": "Kaliningrad",
-    "тула": "Tula",
-    "ставрополь": "Stavropol",
-    "курск": "Kursk",
-    "сочи": "Sochi",
-    "тверь": "Tver",
-    "магнитогорск": "Magnitogorsk",
-    "севастополь": "Sevastopol",
-    "сургут": "Surgut",
+    "москва": "Moscow", "мск": "Moscow", "москве": "Moscow",
+    "санкт-петербург": "Saint Petersburg", "питер": "Saint Petersburg", "спб": "Saint Petersburg", "петербурге": "Saint Petersburg",
+    "новосибирск": "Novosibirsk", "нск": "Novosibirsk", "новосибирске": "Novosibirsk",
+    "екатеринбург": "Yekaterinburg", "екб": "Yekaterinburg", "екатеринбурге": "Yekaterinburg",
+    "казань": "Kazan", "казани": "Kazan",
+    "нижний новгород": "Nizhny Novgorod", "нижний": "Nizhny Novgorod", "нижнем новгороде": "Nizhny Novgorod",
+    "челябинск": "Chelyabinsk", "челябинске": "Chelyabinsk",
+    "самара": "Samara", "самаре": "Samara",
+    "омск": "Omsk", "омске": "Omsk",
+    "ростов-на-дону": "Rostov-on-Don", "ростов": "Rostov-on-Don", "ростове": "Rostov-on-Don",
+    "уфа": "Ufa", "уфе": "Ufa",
+    "красноярск": "Krasnoyarsk", "красноярске": "Krasnoyarsk",
+    "пермь": "Perm", "перми": "Perm",
+    "воронеж": "Voronezh", "воронеже": "Voronezh",
+    "волгоград": "Volgograd", "волгограде": "Volgograd",
+    "краснодар": "Krasnodar", "краснодаре": "Krasnodar",
+    "саратов": "Saratov", "саратове": "Saratov",
+    "тюмень": "Tyumen", "тюмени": "Tyumen",
+    "тольятти": "Tolyatti", "тольятти": "Tolyatti",
+    "ижевск": "Izhevsk", "ижевске": "Izhevsk",
+    "барнаул": "Barnaul", "барнауле": "Barnaul",
+    "ульяновск": "Ulyanovsk", "ульяновске": "Ulyanovsk",
+    "иркутск": "Irkutsk", "иркутске": "Irkutsk",
+    "хабаровск": "Khabarovsk", "хабаровске": "Khabarovsk",
+    "ярославль": "Yaroslavl", "ярославле": "Yaroslavl",
+    "владивосток": "Vladivostok", "владивостоке": "Vladivostok",
+    "махачкала": "Makhachkala", "махачкале": "Makhachkala",
+    "томск": "Tomsk", "томске": "Tomsk",
+    "оренбург": "Orenburg", "оренбурге": "Orenburg",
+    "кемерово": "Kemerovo", "кемерово": "Kemerovo",
+    "новокузнецк": "Novokuznetsk", "новокузнецке": "Novokuznetsk",
+    "рязань": "Ryazan", "рязани": "Ryazan",
+    "астрахань": "Astrakhan", "астрахани": "Astrakhan",
+    "набережные челны": "Naberezhnye Chelny", "набережных челнах": "Naberezhnye Chelny",
+    "пенза": "Penza", "пензе": "Penza",
+    "киров": "Kirov", "кирове": "Kirov",
+    "липецк": "Lipetsk", "липецке": "Lipetsk",
+    "чебоксары": "Cheboksary", "чебоксарах": "Cheboksary",
+    "калининград": "Kaliningrad", "калининграде": "Kaliningrad",
+    "тула": "Tula", "туле": "Tula",
+    "ставрополь": "Stavropol", "ставрополе": "Stavropol",
+    "курск": "Kursk", "курске": "Kursk",
+    "сочи": "Sochi", "сочи": "Sochi",
+    "тверь": "Tver", "твери": "Tver",
+    "магнитогорск": "Magnitogorsk", "магнитогорске": "Magnitogorsk",
+    "севастополь": "Sevastopol", "севастополе": "Sevastopol",
+    "сургут": "Surgut", "сургуте": "Surgut",
     
     # Международные города
-    "нью-йорк": "New York", "нью йорк": "New York", "new york": "New York",
-    "лондон": "London",
-    "париж": "Paris", 
-    "токио": "Tokyo",
-    "дубай": "Dubai",
-    "сидней": "Sydney",
-    "берлин": "Berlin",
-    "мадрид": "Madrid",
-    "рим": "Rome",
-    "амстердам": "Amsterdam",
-    "прага": "Prague",
-    "вена": "Vienna",
-    "варшава": "Warsaw",
-    "стамбул": "Istanbul",
-    "пекин": "Beijing",
-    "шанхай": "Shanghai",
-    "гонконг": "Hong Kong",
-    "сеул": "Seoul",
-    "бангкок": "Bangkok",
-    "сингапур": "Singapore",
-    "куала-лумпур": "Kuala Lumpur",
-    "мельбурн": "Melbourne",
-    "брисбен": "Brisbane",
-    "осло": "Oslo",
-    "стокгольм": "Stockholm",
-    "хельсинки": "Helsinki",
-    "копенгаген": "Copenhagen",
-    "милан": "Milan",
-    "барселона": "Barcelona",
-    "лиссабон": "Lisbon",
-    "брюссель": "Brussels",
-    "афины": "Athens",
-    "будапешт": "Budapest",
-    "бухарест": "Bucharest",
-    "киев": "Kyiv",
-    "минск": "Minsk",
-    "алматы": "Almaty",
-    "ташкент": "Tashkent",
-    "баку": "Baku",
-    "ереван": "Yerevan",
-    "теляви": "Tbilisi",
+    "нью-йорк": "New York", "нью йорк": "New York", "new york": "New York", "нью-йорке": "New York",
+    "лондон": "London", "лондоне": "London",
+    "париж": "Paris", "париже": "Paris",
+    "токио": "Tokyo", "токио": "Tokyo",
+    "дубай": "Dubai", "дубае": "Dubai",
+    "сидней": "Sydney", "сиднее": "Sydney",
+    "берлин": "Berlin", "берлине": "Berlin",
+    "мадрид": "Madrid", "мадриде": "Madrid",
+    "рим": "Rome", "риме": "Rome",
+    "амстердам": "Amsterdam", "амстердаме": "Amsterdam",
+    "прага": "Prague", "праге": "Prague",
+    "вена": "Vienna", "вене": "Vienna",
+    "варшава": "Warsaw", "варшаве": "Warsaw",
+    "стамбул": "Istanbul", "стамбуле": "Istanbul",
+    "пекин": "Beijing", "пекине": "Beijing",
+    "шанхай": "Shanghai", "шанхае": "Shanghai",
+    "гонконг": "Hong Kong", "гонконге": "Hong Kong",
+    "сеул": "Seoul", "сеуле": "Seoul",
+    "бангкок": "Bangkok", "бангкоке": "Bangkok",
+    "сингапур": "Singapore", "сингапуре": "Singapore",
+    "куала-лумпур": "Kuala Lumpur", "куала-лумпуре": "Kuala Lumpur",
+    "мельбурн": "Melbourne", "мельбурне": "Melbourne",
+    "брисбен": "Brisbane", "брисбене": "Brisbane",
+    "осло": "Oslo", "осло": "Oslo",
+    "стокгольм": "Stockholm", "стокгольме": "Stockholm",
+    "хельсинки": "Helsinki", "хельсинки": "Helsinki",
+    "копенгаген": "Copenhagen", "копенгагене": "Copenhagen",
+    "милан": "Milan", "милане": "Milan",
+    "барселона": "Barcelona", "барселоне": "Barcelona",
+    "лиссабон": "Lisbon", "лиссабоне": "Lisbon",
+    "брюссель": "Brussels", "брюсселе": "Brussels",
+    "афины": "Athens", "афинах": "Athens",
+    "будапешт": "Budapest", "будапеште": "Budapest",
+    "бухарест": "Bucharest", "бухаресте": "Bucharest",
+    "киев": "Kyiv", "киеве": "Kyiv",
+    "минск": "Minsk", "минске": "Minsk",
+    "алматы": "Almaty", "алматы": "Almaty",
+    "ташкент": "Tashkent", "ташкенте": "Tashkent",
+    "баку": "Baku", "баку": "Baku",
+    "ереван": "Yerevan", "ереване": "Yerevan",
+    "теляви": "Tbilisi", "теляви": "Tbilisi",
     
     # Украинские города
-    "киев": "Kyiv", "киеве": "Kyiv",
     "харьков": "Kharkiv", "харькове": "Kharkiv",
     "одесса": "Odesa", "одессе": "Odesa",
     "днепр": "Dnipro", "днепре": "Dnipro",
@@ -241,19 +236,17 @@ CITY_MAPPING = {
     "львов": "Lviv", "львове": "Lviv",
     
     # Казахстанские города
-    "алматы": "Almaty",
-    "нур-султан": "Nur-Sultan", "астана": "Nur-Sultan",
-    "шымкент": "Shymkent",
-    "актобе": "Aktobe",
-    "караганда": "Karaganda",
+    "нур-султан": "Nur-Sultan", "астана": "Nur-Sultan", "астане": "Nur-Sultan",
+    "шымкент": "Shymkent", "шымкенте": "Shymkent",
+    "актобе": "Aktobe", "актобе": "Aktobe",
+    "караганда": "Karaganda", "караганде": "Karaganda",
     
     # Белорусские города
-    "минск": "Minsk",
-    "гомель": "Gomel",
-    "могилев": "Mogilev",
-    "витебск": "Vitebsk",
-    "гродно": "Grodno",
-    "брест": "Brest",
+    "гомель": "Gomel", "гомеле": "Gomel",
+    "могилев": "Mogilev", "могилеве": "Mogilev",
+    "витебск": "Vitebsk", "витебске": "Vitebsk",
+    "гродно": "Grodno", "гродно": "Grodno",
+    "брест": "Brest", "бресте": "Brest",
 }
 
 # =======================
@@ -329,6 +322,10 @@ def initialize_user_data(chat_id: int):
     if chat_id not in user_promo_codes:
         user_promo_codes[chat_id] = {}
         save_data(user_promo_codes, DATA_FILES['user_promo_codes'])
+    
+    if chat_id not in user_language:
+        user_language[chat_id] = "ru"
+        save_data(user_language, DATA_FILES['user_language'])
 
 def increment_user_requests(chat_id: int):
     """Увеличивает счетчик запросов пользователя"""
@@ -357,18 +354,12 @@ def get_remaining_homework_requests(chat_id: int) -> int:
     
     initialize_user_data(chat_id)
     
-    # Проверяем промокоды
-    promo_requests = 0
-    for promo_code, promo_data in user_promo_codes.get(chat_id, {}).items():
-        if promo_data.get("expires") >= datetime.now().date():
-            promo_requests += promo_data.get("remaining", 0)
-    
     today = datetime.now().date()
     if user_homework_requests[chat_id].get("last_reset") != today:
-        return HOMEWORK_FREE_LIMITS + promo_requests
+        return HOMEWORK_FREE_LIMITS
     
     used = user_homework_requests[chat_id].get("used", 0)
-    return max(0, HOMEWORK_FREE_LIMITS + promo_requests - used)
+    return max(0, HOMEWORK_FREE_LIMITS - used)
 
 # Загружаем данные при старте
 user_registration_date = load_data(DATA_FILES['user_registration_date'], {})
@@ -383,12 +374,14 @@ admin_logs = load_data(DATA_FILES['admin_logs'], [])
 admin_temp_data = load_data(DATA_FILES['admin_temp_data'], {})
 user_homework_requests = load_data(DATA_FILES['user_homework_requests'], {})
 user_promo_codes = load_data(DATA_FILES['user_promo_codes'], {})
+user_language = load_data(DATA_FILES['user_language'], {})
 
 # Переменные для временных данных
 user_last_request: Dict[int, float] = {}
 user_thinking_messages: Dict[int, int] = {}
 user_awaiting_promo: Dict[int, bool] = {}
 user_last_photo_text: Dict[int, str] = {}  # Для хранения распознанного текста с фото
+user_awaiting_language: Dict[int, bool] = {}  # Для выбора языка при старте
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -860,12 +853,24 @@ S = √(9×(9-5)×(9-6)×(9-7)) = √(9×4×3×2) = √216 ≈ 14.7
 # =======================
 # ===== КЛАВИАТУРЫ =====
 # =======================
+def get_language_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура выбора языка"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇺🇸 English")],
+            [KeyboardButton(text="🇪🇸 Español"), KeyboardButton(text="🇩🇪 Deutsch")],
+            [KeyboardButton(text="🇫🇷 Français"), KeyboardButton(text="🇨🇳 中文")],
+            [KeyboardButton(text="🇯🇵 日本語"), KeyboardButton(text="🇰🇷 한국어")]
+        ],
+        resize_keyboard=True
+    )
+
 def get_main_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
     """Главная клавиатура"""
     keyboard = [
         [KeyboardButton(text="🚀 Начать работу"), KeyboardButton(text="🌟 Обо мне")],
         [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Помощь"), KeyboardButton(text="🌤️ Погода")],
-        [KeyboardButton(text="💎 Тарифы"), KeyboardButton(text="🎁 Промокоды")],
+        [KeyboardButton(text="💎 Тарифы")],
         [KeyboardButton(text="🧹 Очистить память")]
     ]
     
@@ -880,7 +885,7 @@ def get_settings_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="🎭 Режимы AI"), KeyboardButton(text="📊 Статистика")],
             [KeyboardButton(text="🎨 Стиль общения"), KeyboardButton(text="ℹ️ Информация")],
-            [KeyboardButton(text="⚡ Быстрые команды")],
+            [KeyboardButton(text="🌐 Сменить язык"), KeyboardButton(text="⚡ Быстрые команды")],
             [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
@@ -964,6 +969,22 @@ async def cmd_start(message: types.Message):
     chat_id = message.chat.id
     initialize_user_data(chat_id)
 
+    # Если язык еще не выбран, показываем выбор языка
+    if user_language.get(chat_id) == "ru" or chat_id in user_language:
+        await show_main_menu(message)
+    else:
+        user_awaiting_language[chat_id] = True
+        welcome_text = (
+            "🌐 Добро пожаловать! / Welcome! / ¡Bienvenido! / Willkommen! / Bienvenue! / 欢迎！/ ようこそ！/ 환영합니다！\n\n"
+            "Пожалуйста, выберите язык / Please select your language:"
+        )
+        await message.answer(welcome_text, reply_markup=get_language_keyboard())
+
+async def show_main_menu(message: types.Message):
+    """Показывает главное меню"""
+    chat_id = message.chat.id
+    initialize_user_data(chat_id)
+
     current_mode = user_modes[chat_id]
     remaining_days = get_remaining_days(chat_id)
     current_tariff = get_user_tariff(chat_id)
@@ -993,11 +1014,50 @@ async def cmd_start(message: types.Message):
     await message.answer(welcome_text, reply_markup=get_main_keyboard(chat_id))
 
 # =======================
+# ===== ОБРАБОТКА ВЫБОРА ЯЗЫКА =====
+# =======================
+@dp.message(F.text.in_(["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch", "🇫🇷 Français", "🇨🇳 中文", "🇯🇵 日本語", "🇰🇷 한국어"]))
+async def handle_language_selection(message: types.Message):
+    """Обработка выбора языка"""
+    chat_id = message.chat.id
+    
+    language_map = {
+        "🇷🇺 Русский": "ru",
+        "🇺🇸 English": "en", 
+        "🇪🇸 Español": "es",
+        "🇩🇪 Deutsch": "de",
+        "🇫🇷 Français": "fr",
+        "🇨🇳 中文": "zh",
+        "🇯🇵 日本語": "ja",
+        "🇰🇷 한국어": "ko"
+    }
+    
+    selected_language = language_map.get(message.text, "ru")
+    user_language[chat_id] = selected_language
+    save_data(user_language, DATA_FILES['user_language'])
+    
+    user_awaiting_language[chat_id] = False
+    
+    # Приветствие на выбранном языке
+    greetings = {
+        "ru": "Язык установлен: Русский 🇷🇺",
+        "en": "Language set: English 🇺🇸",
+        "es": "Idioma establecido: Español 🇪🇸", 
+        "de": "Sprache eingestellt: Deutsch 🇩🇪",
+        "fr": "Langue définie: Français 🇫🇷",
+        "zh": "语言设置：中文 🇨🇳",
+        "ja": "言語設定：日本語 🇯🇵",
+        "ko": "언어 설정：한국어 🇰🇷"
+    }
+    
+    await message.answer(greetings.get(selected_language, "Язык установлен"), reply_markup=get_main_keyboard(chat_id))
+
+# =======================
 # ===== ОБРАБОТКА КНОПОК ГЛАВНОГО МЕНЮ =====
 # =======================
 @dp.message(F.text == "🚀 Начать работу")
 async def handle_start_work(message: types.Message):
-    await cmd_start(message)
+    await show_main_menu(message)
 
 @dp.message(F.text == "🌟 Обо мне")
 async def handle_about(message: types.Message):
@@ -1050,19 +1110,6 @@ async def handle_tariffs(message: types.Message):
     
     await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
 
-@dp.message(F.text == "🎁 Промокоды")
-async def handle_promo_codes(message: types.Message):
-    """Обработка кнопки промокодов"""
-    chat_id = message.chat.id
-    user_awaiting_promo[chat_id] = True
-    
-    promo_text = "🎁 Активация промокода\n\n"
-    promo_text += "Доступные промокоды:\n"
-    promo_text += "• УЧЕБА - 13 запросов в режиме помощи с уроками на 2 дня\n\n"
-    promo_text += "Введите промокод:"
-    
-    await message.answer(promo_text, reply_markup=get_main_keyboard(chat_id))
-
 @dp.message(F.text == "🧹 Очистить память")
 async def handle_clear_memory(message: types.Message):
     """Обработка кнопки очистки памяти"""
@@ -1104,43 +1151,25 @@ async def handle_admin_panel(message: types.Message):
     
     await message.answer(admin_text, reply_markup=get_admin_keyboard())
 
-# =======================
-# ===== ОБРАБОТКА ПРОМОКОДОВ =====
-# =======================
-@dp.message(lambda message: user_awaiting_promo.get(message.chat.id, False))
-async def handle_promo_code_input(message: types.Message):
-    """Обработка ввода промокода"""
+@dp.message(F.text == "🌐 Сменить язык")
+async def handle_change_language(message: types.Message):
+    """Обработка кнопки смены языка"""
     chat_id = message.chat.id
-    promo_code = message.text.strip().upper()
+    user_awaiting_language[chat_id] = True
     
-    user_awaiting_promo[chat_id] = False
+    language_text = (
+        "🌐 Выберите язык / Select your language:\n\n"
+        "🇷🇺 Русский\n"
+        "🇺🇸 English\n" 
+        "🇪🇸 Español\n"
+        "🇩🇪 Deutsch\n"
+        "🇫🇷 Français\n"
+        "🇨🇳 中文\n"
+        "🇯🇵 日本語\n"
+        "🇰🇷 한국어"
+    )
     
-    if promo_code in PROMO_CODES:
-        promo_info = PROMO_CODES[promo_code]
-        
-        # Проверяем, не активирован ли уже промокод
-        if chat_id not in user_promo_codes:
-            user_promo_codes[chat_id] = {}
-        
-        if promo_code not in user_promo_codes[chat_id]:
-            user_promo_codes[chat_id][promo_code] = {
-                "remaining": promo_info["requests"],
-                "expires": (datetime.now() + timedelta(days=promo_info["days"])).date(),
-                "activated": datetime.now()
-            }
-            save_data(user_promo_codes, DATA_FILES['user_promo_codes'])
-            
-            await message.answer(
-                f"✅ Промокод активирован!\n\n"
-                f"🎁 Вы получили: {promo_info['requests']} запросов в режиме помощи с уроками\n"
-                f"⏳ Действует: {promo_info['days']} дня\n\n"
-                f"Теперь у вас {get_remaining_homework_requests(chat_id)} запросов в режиме помощи с уроками",
-                reply_markup=get_main_keyboard(chat_id)
-            )
-        else:
-            await message.answer("❌ Этот промокод уже был активирован ранее.", reply_markup=get_main_keyboard(chat_id))
-    else:
-        await message.answer("❌ Неверный промокод. Попробуйте еще раз.", reply_markup=get_main_keyboard(chat_id))
+    await message.answer(language_text, reply_markup=get_language_keyboard())
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК НАСТРОЕК =====
@@ -1478,6 +1507,11 @@ async def handle_action_logs(message: types.Message):
 async def handle_photo(message: types.Message):
     """Обработка фотографий"""
     chat_id = message.chat.id
+    
+    # Если ожидается выбор языка, игнорируем фото
+    if user_awaiting_language.get(chat_id):
+        return
+    
     initialize_user_data(chat_id)
     
     # Проверяем возможность сделать запрос
@@ -1538,6 +1572,11 @@ async def handle_photo(message: types.Message):
 async def handle_voice(message: types.Message):
     """Обработка голосовых сообщений"""
     chat_id = message.chat.id
+    
+    # Если ожидается выбор языка, игнорируем голосовое
+    if user_awaiting_language.get(chat_id):
+        return
+    
     initialize_user_data(chat_id)
     
     # Проверяем возможность сделать запрос
@@ -1593,15 +1632,22 @@ async def handle_text(message: types.Message):
     """Обработка текстовых сообщений"""
     chat_id = message.chat.id
     user_text = message.text.strip()
+    
+    # Если ожидается выбор языка, обрабатываем только кнопки языка
+    if user_awaiting_language.get(chat_id):
+        if user_text not in ["🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch", "🇫🇷 Français", "🇨🇳 中文", "🇯🇵 日本語", "🇰🇷 한국어"]:
+            await message.answer("Пожалуйста, выберите язык из предложенных вариантов.", reply_markup=get_language_keyboard())
+        return
+    
     initialize_user_data(chat_id)
     
     # Игнорируем кнопки, которые уже обработаны
     button_texts = [
         # Главное меню
         "🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤️ Погода", 
-        "💎 Тарифы", "🎁 Промокоды", "🧹 Очистить память", "🛠️ Админ-панель",
+        "💎 Тарифы", "🧹 Очистить память", "🛠️ Админ-панель",
         # Настройки
-        "🎭 Режимы AI", "📊 Статистика", "🎨 Стиль общения", "ℹ️ Информация", "⚡ Быстрые команды", "⬅️ Назад",
+        "🎭 Режимы AI", "📊 Статистика", "🎨 Стиль общения", "ℹ️ Информация", "⚡ Быстрые команды", "🌐 Сменить язык", "⬅️ Назад",
         # Режимы AI
         "🧘 Спокойный", "💬 Обычный", "⚡ Короткий", "🧠 Умный", "📚 Помощь с уроками",
         # Стили общения
@@ -1613,7 +1659,9 @@ async def handle_text(message: types.Message):
         # Быстрые команды
         "📝 Конвертер валют", "🎯 Случайный выбор", "📅 Текущая дата", "⏰ Текущее время", "🔢 Калькулятор", "🎁 Сюрприз",
         # Админ-панель
-        "👥 Статистика пользователей", "📊 Общая статистика", "📋 Логи действий", "⬅️ Главное меню"
+        "👥 Статистика пользователей", "📊 Общая статистика", "📋 Логи действий", "⬅️ Главное меню",
+        # Языки
+        "🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch", "🇫🇷 Français", "🇨🇳 中文", "🇯🇵 日本語", "🇰🇷 한국어"
     ]
     
     if user_text in button_texts:
@@ -1646,13 +1694,18 @@ async def handle_text(message: types.Message):
     # Обработка специальных команд
     user_text_lower = user_text.lower()
     
-    # Погода
-    if any(word in user_text_lower for word in ["погода", "weather"]) or user_text_lower in CITY_MAPPING:
+    # Погода - улучшенное распознавание
+    if any(word in user_text_lower for word in ["погода", "weather"]) or any(city in user_text_lower for city in CITY_MAPPING.keys()):
         city = user_text_lower
-        # Извлекаем название города
-        for key in ["погода", "weather", "в", "в городе"]:
+        
+        # Извлекаем название города из разных форматов запросов
+        for key in ["погода", "weather", "в", "в городе", "какая погода в", "какая погода"]:
             city = city.replace(key, "").strip()
         
+        # Убираем знаки препинания
+        city = city.replace("?", "").replace("!", "").strip()
+        
+        # Проверяем синонимы городов
         if city in CITY_MAPPING:
             city = CITY_MAPPING[city]
         
@@ -1698,6 +1751,38 @@ async def handle_text(message: types.Message):
             await message.answer("❌ Ошибка перевода текста.", reply_markup=get_main_keyboard(chat_id))
             return
     
+    # Дополнительные запросы о фото (расскажи об этом, сделай короче и т.д.)
+    if chat_id in user_last_photo_text and user_last_photo_text[chat_id]:
+        if any(word in user_text_lower for word in ["расскажи", "объясни", "что это", "про что", "опиши"]):
+            # Анализ содержимого фото
+            thinking_msg_id = await send_thinking_message(chat_id)
+            try:
+                analysis_prompt = f"Проанализируй этот текст и подробно расскажи о чем он: {user_last_photo_text[chat_id]}"
+                analysis_result = await get_ai_response(analysis_prompt, chat_id, current_mode)
+                await delete_thinking_message(chat_id, thinking_msg_id)
+                await message.answer(f"📊 Анализ содержимого:\n\n{analysis_result}", reply_markup=get_main_keyboard(chat_id))
+                increment_user_requests(chat_id)
+                return
+            except Exception as e:
+                await delete_thinking_message(chat_id, thinking_msg_id)
+                await message.answer("❌ Ошибка анализа содержимого.", reply_markup=get_main_keyboard(chat_id))
+                return
+        
+        elif any(word in user_text_lower for word in ["короче", "сократи", "суть", "основное"]):
+            # Сокращение текста
+            thinking_msg_id = await send_thinking_message(chat_id)
+            try:
+                shorten_prompt = f"Сократи этот текст, оставив только основную суть: {user_last_photo_text[chat_id]}"
+                shortened_result = await get_ai_response(shorten_prompt, chat_id, current_mode)
+                await delete_thinking_message(chat_id, thinking_msg_id)
+                await message.answer(f"✂️ Сокращенный текст:\n\n{shortened_result}", reply_markup=get_main_keyboard(chat_id))
+                increment_user_requests(chat_id)
+                return
+            except Exception as e:
+                await delete_thinking_message(chat_id, thinking_msg_id)
+                await message.answer("❌ Ошибка сокращения текста.", reply_markup=get_main_keyboard(chat_id))
+                return
+    
     # Калькулятор
     if any(word in user_text_lower for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate"]):
         try:
@@ -1729,16 +1814,7 @@ async def handle_text(message: types.Message):
         question_type = "normal"
         if current_mode == "homework":
             question_type = "homework"
-            # Используем промокодные запросы если есть
-            used_promo = False
-            for promo_code, promo_data in user_promo_codes.get(chat_id, {}).items():
-                if promo_data.get("remaining", 0) > 0 and promo_data.get("expires") >= datetime.now().date():
-                    user_promo_codes[chat_id][promo_code]["remaining"] -= 1
-                    used_promo = True
-                    break
-            
-            if not used_promo and chat_id != ADMIN_ID:
-                increment_homework_requests(chat_id)
+            increment_homework_requests(chat_id)
         else:
             increment_user_requests(chat_id)
         
@@ -1748,8 +1824,18 @@ async def handle_text(message: types.Message):
         # Удаляем сообщение "Думаю..."
         await delete_thinking_message(chat_id, thinking_msg_id)
         
+        # Форматируем ответ (убираем форматирование **Коротко:** и т.д.)
+        cleaned_response = ai_response
+        if "**Коротко:**" in cleaned_response:
+            # Убираем заголовок "Коротко:"
+            cleaned_response = cleaned_response.replace("**Коротко:**", "").strip()
+        if "**По погоде:**" in cleaned_response:
+            cleaned_response = cleaned_response.replace("**По погоде:**", "").strip()
+        if "*Что ещё?*" in cleaned_response:
+            cleaned_response = cleaned_response.replace("*Что ещё?*", "").strip()
+        
         # Форматируем ответ
-        final_response = create_smart_response(ai_response, question_type)
+        final_response = create_smart_response(cleaned_response, question_type)
         
         # Отправляем ответ
         await message.answer(final_response, reply_markup=get_main_keyboard(chat_id))
