@@ -324,7 +324,7 @@ def initialize_user_data(chat_id: int):
         save_data(user_promo_codes, DATA_FILES['user_promo_codes'])
     
     if chat_id not in user_language:
-        user_language[chat_id] = "ru"
+        user_language[chat_id] = None  # Язык не выбран
         save_data(user_language, DATA_FILES['user_language'])
 
 def increment_user_requests(chat_id: int):
@@ -851,7 +851,7 @@ S = √(9×(9-5)×(9-6)×(9-7)) = √(9×4×3×2) = √216 ≈ 14.7
         return "Извините, произошла ошибка при обработке запроса. Пожалуйста, попробуйте еще раз."
 
 # =======================
-# ===== КЛАВИАТУРЫ =====
+# ===== КЛАВИАТУРЫ С ПОДДЕРЖКОЙ ЯЗЫКОВ =====
 # =======================
 def get_language_keyboard() -> ReplyKeyboardMarkup:
     """Клавиатура выбора языка"""
@@ -866,97 +866,595 @@ def get_language_keyboard() -> ReplyKeyboardMarkup:
     )
 
 def get_main_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
-    """Главная клавиатура"""
+    """Главная клавиатура с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    # Тексты кнопок для разных языков
+    buttons = {
+        "ru": {
+            "start": "🚀 Начать работу",
+            "about": "🌟 Обо мне", 
+            "settings": "⚙️ Настройки",
+            "help": "❓ Помощь",
+            "weather": "🌤️ Погода",
+            "tariffs": "💎 Тарифы",
+            "clear": "🧹 Очистить память",
+            "admin": "🛠️ Админ-панель"
+        },
+        "en": {
+            "start": "🚀 Start work",
+            "about": "🌟 About me",
+            "settings": "⚙️ Settings", 
+            "help": "❓ Help",
+            "weather": "🌤️ Weather",
+            "tariffs": "💎 Tariffs",
+            "clear": "🧹 Clear memory",
+            "admin": "🛠️ Admin panel"
+        },
+        "es": {
+            "start": "🚀 Iniciar trabajo",
+            "about": "🌟 Sobre mí",
+            "settings": "⚙️ Configuración",
+            "help": "❓ Ayuda",
+            "weather": "🌤️ Clima", 
+            "tariffs": "💎 Tarifas",
+            "clear": "🧹 Limpiar memoria",
+            "admin": "🛠️ Panel admin"
+        },
+        "de": {
+            "start": "🚀 Arbeit beginnen",
+            "about": "🌟 Über mich",
+            "settings": "⚙️ Einstellungen",
+            "help": "❓ Hilfe",
+            "weather": "🌤️ Wetter",
+            "tariffs": "💎 Tarife",
+            "clear": "🧹 Speicher löschen",
+            "admin": "🛠️ Admin-Panel"
+        },
+        "fr": {
+            "start": "🚀 Commencer",
+            "about": "🌟 À propos",
+            "settings": "⚙️ Paramètres",
+            "help": "❓ Aide",
+            "weather": "🌤️ Météo",
+            "tariffs": "💎 Tarifs",
+            "clear": "🧹 Effacer mémoire", 
+            "admin": "🛠️ Panel admin"
+        },
+        "zh": {
+            "start": "🚀 开始工作",
+            "about": "🌟 关于我",
+            "settings": "⚙️ 设置",
+            "help": "❓ 帮助",
+            "weather": "🌤️ 天气",
+            "tariffs": "💎 资费",
+            "clear": "🧹 清除记忆",
+            "admin": "🛠️ 管理面板"
+        },
+        "ja": {
+            "start": "🚀 仕事を始める",
+            "about": "🌟 私について",
+            "settings": "⚙️ 設定",
+            "help": "❓ ヘルプ",
+            "weather": "🌤️ 天気",
+            "tariffs": "💎 料金",
+            "clear": "🧹 メモリをクリア",
+            "admin": "🛠️ 管理パネル"
+        },
+        "ko": {
+            "start": "🚀 작업 시작",
+            "about": "🌟 내 정보",
+            "settings": "⚙️ 설정",
+            "help": "❓ 도움말",
+            "weather": "🌤️ 날씨",
+            "tariffs": "💎 요금제",
+            "clear": "🧹 메모리 지우기",
+            "admin": "🛠️ 관리자 패널"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     keyboard = [
-        [KeyboardButton(text="🚀 Начать работу"), KeyboardButton(text="🌟 Обо мне")],
-        [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Помощь"), KeyboardButton(text="🌤️ Погода")],
-        [KeyboardButton(text="💎 Тарифы")],
-        [KeyboardButton(text="🧹 Очистить память")]
+        [KeyboardButton(text=btn["start"]), KeyboardButton(text=btn["about"])],
+        [KeyboardButton(text=btn["settings"]), KeyboardButton(text=btn["help"]), KeyboardButton(text=btn["weather"])],
+        [KeyboardButton(text=btn["tariffs"])],
+        [KeyboardButton(text=btn["clear"])]
     ]
     
     if chat_id == ADMIN_ID:
-        keyboard.append([KeyboardButton(text="🛠️ Админ-панель")])
+        keyboard.append([KeyboardButton(text=btn["admin"])])
     
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-def get_settings_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура настроек"""
+def get_settings_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура настроек с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    buttons = {
+        "ru": {
+            "modes": "🎭 Режимы AI",
+            "stats": "📊 Статистика", 
+            "style": "🎨 Стиль общения",
+            "info": "ℹ️ Информация",
+            "language": "🌐 Сменить язык",
+            "quick": "⚡ Быстрые команды",
+            "back": "⬅️ Назад"
+        },
+        "en": {
+            "modes": "🎭 AI Modes",
+            "stats": "📊 Statistics",
+            "style": "🎨 Communication style", 
+            "info": "ℹ️ Information",
+            "language": "🌐 Change language",
+            "quick": "⚡ Quick commands",
+            "back": "⬅️ Back"
+        },
+        "es": {
+            "modes": "🎭 Modos AI",
+            "stats": "📊 Estadísticas",
+            "style": "🎨 Estilo comunicación",
+            "info": "ℹ️ Información",
+            "language": "🌐 Cambiar idioma",
+            "quick": "⚡ Comandos rápidos", 
+            "back": "⬅️ Atrás"
+        },
+        "de": {
+            "modes": "🎭 KI-Modi",
+            "stats": "📊 Statistiken",
+            "style": "🎨 Kommunikationsstil",
+            "info": "ℹ️ Information",
+            "language": "🌐 Sprache ändern",
+            "quick": "⚡ Schnellbefehle",
+            "back": "⬅️ Zurück"
+        },
+        "fr": {
+            "modes": "🎭 Modes IA",
+            "stats": "📊 Statistiques", 
+            "style": "🎨 Style communication",
+            "info": "ℹ️ Information",
+            "language": "🌐 Changer langue",
+            "quick": "⚡ Commandes rapides",
+            "back": "⬅️ Retour"
+        },
+        "zh": {
+            "modes": "🎭 AI模式",
+            "stats": "📊 统计",
+            "style": "🎨 交流风格",
+            "info": "ℹ️ 信息",
+            "language": "🌐 更改语言",
+            "quick": "⚡ 快速命令",
+            "back": "⬅️ 返回"
+        },
+        "ja": {
+            "modes": "🎭 AIモード",
+            "stats": "📊 統計",
+            "style": "🎨 コミュニケーションスタイル",
+            "info": "ℹ️ 情報",
+            "language": "🌐 言語変更",
+            "quick": "⚡ クイックコマンド",
+            "back": "⬅️ 戻る"
+        },
+        "ko": {
+            "modes": "🎭 AI 모드",
+            "stats": "📊 통계",
+            "style": "🎨 커뮤니케이션 스타일",
+            "info": "ℹ️ 정보",
+            "language": "🌐 언어 변경",
+            "quick": "⚡ 빠른 명령",
+            "back": "⬅️ 뒤로"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🎭 Режимы AI"), KeyboardButton(text="📊 Статистика")],
-            [KeyboardButton(text="🎨 Стиль общения"), KeyboardButton(text="ℹ️ Информация")],
-            [KeyboardButton(text="🌐 Сменить язык"), KeyboardButton(text="⚡ Быстрые команды")],
-            [KeyboardButton(text="⬅️ Назад")]
+            [KeyboardButton(text=btn["modes"]), KeyboardButton(text=btn["stats"])],
+            [KeyboardButton(text=btn["style"]), KeyboardButton(text=btn["info"])],
+            [KeyboardButton(text=btn["language"]), KeyboardButton(text=btn["quick"])],
+            [KeyboardButton(text=btn["back"])]
         ],
         resize_keyboard=True
     )
 
-def get_tariffs_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура тарифов"""
+def get_tariffs_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура тарифов с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    back_text = {
+        "ru": "⬅️ Назад",
+        "en": "⬅️ Back", 
+        "es": "⬅️ Atrás",
+        "de": "⬅️ Zurück",
+        "fr": "⬅️ Retour",
+        "zh": "⬅️ 返回",
+        "ja": "⬅️ 戻る",
+        "ko": "⬅️ 뒤로"
+    }
+    
+    my_tariff_text = {
+        "ru": "📊 Мой тариф",
+        "en": "📊 My tariff",
+        "es": "📊 Mi tarifa",
+        "de": "📊 Mein Tarif",
+        "fr": "📊 Mon tarif",
+        "zh": "📊 我的资费", 
+        "ja": "📊 私の料金",
+        "ko": "📊 내 요금제"
+    }
+    
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🚀 Default"), KeyboardButton(text="⭐ Pro")],
             [KeyboardButton(text="💎 Advanced"), KeyboardButton(text="👑 Ultimate")],
-            [KeyboardButton(text="📊 Мой тариф")],
-            [KeyboardButton(text="⬅️ Назад")]
+            [KeyboardButton(text=my_tariff_text.get(lang, "📊 Мой тариф"))],
+            [KeyboardButton(text=back_text.get(lang, "⬅️ Назад"))]
         ],
         resize_keyboard=True
     )
 
-def get_mode_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура режимов AI"""
+def get_mode_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура режимов AI с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    buttons = {
+        "ru": {
+            "calm": "🧘 Спокойный",
+            "normal": "💬 Обычный", 
+            "short": "⚡ Короткий",
+            "smart": "🧠 Умный",
+            "homework": "📚 Помощь с уроками",
+            "back": "⬅️ Назад"
+        },
+        "en": {
+            "calm": "🧘 Calm",
+            "normal": "💬 Normal",
+            "short": "⚡ Short",
+            "smart": "🧠 Smart", 
+            "homework": "📚 Homework help",
+            "back": "⬅️ Back"
+        },
+        "es": {
+            "calm": "🧘 Calmado",
+            "normal": "💬 Normal",
+            "short": "⚡ Corto",
+            "smart": "🧠 Inteligente",
+            "homework": "📚 Ayuda tareas",
+            "back": "⬅️ Atrás"
+        },
+        "de": {
+            "calm": "🧘 Ruhig",
+            "normal": "💬 Normal", 
+            "short": "⚡ Kurz",
+            "smart": "🧠 Intelligent",
+            "homework": "📚 Hausaufgabenhilfe",
+            "back": "⬅️ Zurück"
+        },
+        "fr": {
+            "calm": "🧘 Calme",
+            "normal": "💬 Normal",
+            "short": "⚡ Court",
+            "smart": "🧠 Intelligent",
+            "homework": "📚 Aide devoirs",
+            "back": "⬅️ Retour"
+        },
+        "zh": {
+            "calm": "🧘 平静",
+            "normal": "💬 普通",
+            "short": "⚡ 简短", 
+            "smart": "🧠 智能",
+            "homework": "📚 作业帮助",
+            "back": "⬅️ 返回"
+        },
+        "ja": {
+            "calm": "🧘 冷静",
+            "normal": "💬 通常",
+            "short": "⚡ 短い",
+            "smart": "🧠 スマート",
+            "homework": "📚 宿題ヘルプ",
+            "back": "⬅️ 戻る"
+        },
+        "ko": {
+            "calm": "🧘 차분한",
+            "normal": "💬 일반",
+            "short": "⚡ 짧은",
+            "smart": "🧠 스마트",
+            "homework": "📚 숙제 도움",
+            "back": "⬅️ 뒤로"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🧘 Спокойный"), KeyboardButton(text="💬 Обычный")],
-            [KeyboardButton(text="⚡ Короткий"), KeyboardButton(text="🧠 Умный")],
-            [KeyboardButton(text="📚 Помощь с уроками")],
-            [KeyboardButton(text="⬅️ Назад")]
+            [KeyboardButton(text=btn["calm"]), KeyboardButton(text=btn["normal"])],
+            [KeyboardButton(text=btn["short"]), KeyboardButton(text=btn["smart"])],
+            [KeyboardButton(text=btn["homework"])],
+            [KeyboardButton(text=btn["back"])]
         ],
         resize_keyboard=True
     )
 
-def get_style_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура стилей общения"""
+def get_style_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура стилей общения с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    buttons = {
+        "ru": {
+            "friendly": "💫 Дружелюбный",
+            "balanced": "⚖️ Сбалансированный",
+            "business": "🎯 Деловой", 
+            "creative": "🎨 Креативный",
+            "back": "⬅️ Назад"
+        },
+        "en": {
+            "friendly": "💫 Friendly",
+            "balanced": "⚖️ Balanced",
+            "business": "🎯 Business",
+            "creative": "🎨 Creative",
+            "back": "⬅️ Back"
+        },
+        "es": {
+            "friendly": "💫 Amigable",
+            "balanced": "⚖️ Equilibrado",
+            "business": "🎯 Empresarial", 
+            "creative": "🎨 Creativo",
+            "back": "⬅️ Atrás"
+        },
+        "de": {
+            "friendly": "💫 Freundlich",
+            "balanced": "⚖️ Ausgeglichen",
+            "business": "🎯 Geschäftlich",
+            "creative": "🎨 Kreativ",
+            "back": "⬅️ Zurück"
+        },
+        "fr": {
+            "friendly": "💫 Amical",
+            "balanced": "⚖️ Équilibré",
+            "business": "🎯 Professionnel",
+            "creative": "🎨 Créatif",
+            "back": "⬅️ Retour"
+        },
+        "zh": {
+            "friendly": "💫 友好",
+            "balanced": "⚖️ 平衡", 
+            "business": "🎯 商务",
+            "creative": "🎨 创意",
+            "back": "⬅️ 返回"
+        },
+        "ja": {
+            "friendly": "💫 友好的",
+            "balanced": "⚖️ バランス",
+            "business": "🎯 ビジネス",
+            "creative": "🎨 クリエイティブ",
+            "back": "⬅️ 戻る"
+        },
+        "ko": {
+            "friendly": "💫 친근한",
+            "balanced": "⚖️ 균형 잡힌",
+            "business": "🎯 비즈니스",
+            "creative": "🎨 창의적인",
+            "back": "⬅️ 뒤로"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="💫 Дружелюбный"), KeyboardButton(text="⚖️ Сбалансированный")],
-            [KeyboardButton(text="🎯 Деловой"), KeyboardButton(text="🎨 Креативный")],
-            [KeyboardButton(text="⬅️ Назад")]
+            [KeyboardButton(text=btn["friendly"]), KeyboardButton(text=btn["balanced"])],
+            [KeyboardButton(text=btn["business"]), KeyboardButton(text=btn["creative"])],
+            [KeyboardButton(text=btn["back"])]
         ],
         resize_keyboard=True
     )
 
-def get_weather_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура для выбора городов погоды"""
+def get_weather_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура для выбора городов погоды с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    buttons = {
+        "ru": {
+            "other": "🌃 Другой город",
+            "back": "⬅️ Назад"
+        },
+        "en": {
+            "other": "🌃 Other city", 
+            "back": "⬅️ Back"
+        },
+        "es": {
+            "other": "🌃 Otra ciudad",
+            "back": "⬅️ Atrás"
+        },
+        "de": {
+            "other": "🌃 Andere Stadt",
+            "back": "⬅️ Zurück"
+        },
+        "fr": {
+            "other": "🌃 Autre ville",
+            "back": "⬅️ Retour"
+        },
+        "zh": {
+            "other": "🌃 其他城市",
+            "back": "⬅️ 返回"
+        },
+        "ja": {
+            "other": "🌃 他の都市",
+            "back": "⬅️ 戻る"
+        },
+        "ko": {
+            "other": "🌃 다른 도시",
+            "back": "⬅️ 뒤로"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🌆 Москва"), KeyboardButton(text="🏛️ Санкт-Петербург")],
             [KeyboardButton(text="🗽 Нью-Йорк"), KeyboardButton(text="🌉 Лондон")],
             [KeyboardButton(text="🗼 Париж"), KeyboardButton(text="🏯 Токио")],
-            [KeyboardButton(text="🌃 Другой город"), KeyboardButton(text="⬅️ Назад")]
+            [KeyboardButton(text=btn["other"]), KeyboardButton(text=btn["back"])]
         ],
         resize_keyboard=True
     )
 
-def get_quick_commands_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура быстрых команд"""
+def get_quick_commands_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура быстрых команд с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    buttons = {
+        "ru": {
+            "currency": "📝 Конвертер валют",
+            "random": "🎯 Случайный выбор",
+            "date": "📅 Текущая дата",
+            "time": "⏰ Текущее время", 
+            "calc": "🔢 Калькулятор",
+            "surprise": "🎁 Сюрприз",
+            "back": "⬅️ Назад"
+        },
+        "en": {
+            "currency": "📝 Currency converter",
+            "random": "🎯 Random choice",
+            "date": "📅 Current date",
+            "time": "⏰ Current time",
+            "calc": "🔢 Calculator",
+            "surprise": "🎁 Surprise", 
+            "back": "⬅️ Back"
+        },
+        "es": {
+            "currency": "📝 Conversor moneda",
+            "random": "🎯 Elección aleatoria",
+            "date": "📅 Fecha actual",
+            "time": "⏰ Hora actual",
+            "calc": "🔢 Calculadora",
+            "surprise": "🎁 Sorpresa",
+            "back": "⬅️ Atrás"
+        },
+        "de": {
+            "currency": "📝 Währungsrechner",
+            "random": "🎯 Zufällige Wahl", 
+            "date": "📅 Aktuelles Datum",
+            "time": "⏰ Aktuelle Zeit",
+            "calc": "🔢 Rechner",
+            "surprise": "🎁 Überraschung",
+            "back": "⬅️ Zurück"
+        },
+        "fr": {
+            "currency": "📝 Convertisseur devise",
+            "random": "🎯 Choix aléatoire",
+            "date": "📅 Date actuelle",
+            "time": "⏰ Heure actuelle",
+            "calc": "🔢 Calculatrice",
+            "surprise": "🎁 Surprise",
+            "back": "⬅️ Retour"
+        },
+        "zh": {
+            "currency": "📝 货币转换器",
+            "random": "🎯 随机选择", 
+            "date": "📅 当前日期",
+            "time": "⏰ 当前时间",
+            "calc": "🔢 计算器",
+            "surprise": "🎁 惊喜",
+            "back": "⬅️ 返回"
+        },
+        "ja": {
+            "currency": "📝 通貨コンバーター",
+            "random": "🎯 ランダム選択",
+            "date": "📅 現在の日付",
+            "time": "⏰ 現在時刻",
+            "calc": "🔢 計算機",
+            "surprise": "🎁 サプライズ",
+            "back": "⬅️ 戻る"
+        },
+        "ko": {
+            "currency": "📝 통화 변환기",
+            "random": "🎯 무작위 선택",
+            "date": "📅 현재 날짜",
+            "time": "⏰ 현재 시간",
+            "calc": "🔢 계산기",
+            "surprise": "🎁 서프라이즈",
+            "back": "⬅️ 뒤로"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📝 Конвертер валют"), KeyboardButton(text="🎯 Случайный выбор")],
-            [KeyboardButton(text="📅 Текущая дата"), KeyboardButton(text="⏰ Текущее время")],
-            [KeyboardButton(text="🔢 Калькулятор"), KeyboardButton(text="🎁 Сюрприз")],
-            [KeyboardButton(text="⬅️ Назад")]
+            [KeyboardButton(text=btn["currency"]), KeyboardButton(text=btn["random"])],
+            [KeyboardButton(text=btn["date"]), KeyboardButton(text=btn["time"])],
+            [KeyboardButton(text=btn["calc"]), KeyboardButton(text=btn["surprise"])],
+            [KeyboardButton(text=btn["back"])]
         ],
         resize_keyboard=True
     )
 
-def get_admin_keyboard() -> ReplyKeyboardMarkup:
-    """Клавиатура админ-панели"""
+def get_admin_keyboard(chat_id: int) -> ReplyKeyboardMarkup:
+    """Клавиатура админ-панели с учетом языка"""
+    lang = user_language.get(chat_id, "ru")
+    
+    buttons = {
+        "ru": {
+            "users": "👥 Статистика пользователей",
+            "stats": "📊 Общая статистика",
+            "logs": "📋 Логи действий", 
+            "back": "⬅️ Главное меню"
+        },
+        "en": {
+            "users": "👥 User statistics",
+            "stats": "📊 General statistics",
+            "logs": "📋 Action logs",
+            "back": "⬅️ Main menu"
+        },
+        "es": {
+            "users": "👥 Estadísticas usuarios",
+            "stats": "📊 Estadísticas generales",
+            "logs": "📋 Registros acciones",
+            "back": "⬅️ Menú principal"
+        },
+        "de": {
+            "users": "👥 Benutzerstatistiken",
+            "stats": "📊 Allgemeine Statistiken", 
+            "logs": "📋 Aktionsprotokolle",
+            "back": "⬅️ Hauptmenü"
+        },
+        "fr": {
+            "users": "👥 Statistiques utilisateurs",
+            "stats": "📊 Statistiques générales",
+            "logs": "📋 Journaux actions",
+            "back": "⬅️ Menu principal"
+        },
+        "zh": {
+            "users": "👥 用户统计",
+            "stats": "📊 总体统计",
+            "logs": "📋 操作日志",
+            "back": "⬅️ 主菜单"
+        },
+        "ja": {
+            "users": "👥 ユーザー統計",
+            "stats": "📊 全体統計", 
+            "logs": "📋 アクションログ",
+            "back": "⬅️ メインメニュー"
+        },
+        "ko": {
+            "users": "👥 사용자 통계",
+            "stats": "📊 일반 통계",
+            "logs": "📋 작업 로그",
+            "back": "⬅️ 메인 메뉴"
+        }
+    }
+    
+    btn = buttons.get(lang, buttons["ru"])
+    
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="👥 Статистика пользователей"), KeyboardButton(text="📊 Общая статистика")],
-            [KeyboardButton(text="📋 Логи действий")],
-            [KeyboardButton(text="⬅️ Главное меню")]
+            [KeyboardButton(text=btn["users"]), KeyboardButton(text=btn["stats"])],
+            [KeyboardButton(text=btn["logs"])],
+            [KeyboardButton(text=btn["back"])]
         ],
         resize_keyboard=True
     )
@@ -969,16 +1467,16 @@ async def cmd_start(message: types.Message):
     chat_id = message.chat.id
     initialize_user_data(chat_id)
 
-    # Если язык еще не выбран, показываем выбор языка
-    if user_language.get(chat_id) == "ru" or chat_id in user_language:
-        await show_main_menu(message)
-    else:
+    # Всегда показываем выбор языка при /start, если язык не выбран
+    if user_language.get(chat_id) is None:
         user_awaiting_language[chat_id] = True
         welcome_text = (
             "🌐 Добро пожаловать! / Welcome! / ¡Bienvenido! / Willkommen! / Bienvenue! / 欢迎！/ ようこそ！/ 환영합니다！\n\n"
             "Пожалуйста, выберите язык / Please select your language:"
         )
         await message.answer(welcome_text, reply_markup=get_language_keyboard())
+    else:
+        await show_main_menu(message)
 
 async def show_main_menu(message: types.Message):
     """Показывает главное меню"""
@@ -1055,11 +1553,11 @@ async def handle_language_selection(message: types.Message):
 # =======================
 # ===== ОБРАБОТКА КНОПОК ГЛАВНОГО МЕНЮ =====
 # =======================
-@dp.message(F.text == "🚀 Начать работу")
+@dp.message(F.text.in_(["🚀 Начать работу", "🚀 Start work", "🚀 Iniciar trabajo", "🚀 Arbeit beginnen", "🚀 Commencer", "🚀 开始工作", "🚀 仕事を始める", "🚀 작업 시작"]))
 async def handle_start_work(message: types.Message):
     await show_main_menu(message)
 
-@dp.message(F.text == "🌟 Обо мне")
+@dp.message(F.text.in_(["🌟 Обо мне", "🌟 About me", "🌟 Sobre mí", "🌟 Über mich", "🌟 À propos", "🌟 关于我", "🌟 私について", "🌟 내 정보"]))
 async def handle_about(message: types.Message):
     about_text = (
         "🤖 GlemixAI\n\n"
@@ -1074,7 +1572,7 @@ async def handle_about(message: types.Message):
     )
     await message.answer(about_text, reply_markup=get_main_keyboard(message.from_user.id))
 
-@dp.message(F.text == "❓ Помощь")
+@dp.message(F.text.in_(["❓ Помощь", "❓ Help", "❓ Ayuda", "❓ Hilfe", "❓ Aide", "❓ 帮助", "❓ ヘルプ", "❓ 도움말"]))
 async def handle_help(message: types.Message):
     help_text = (
         "❓ Помощь по GlemixAI\n\n"
@@ -1093,12 +1591,12 @@ async def handle_help(message: types.Message):
     )
     await message.answer(help_text, reply_markup=get_main_keyboard(message.from_user.id))
 
-@dp.message(F.text == "🌤️ Погода")
+@dp.message(F.text.in_(["🌤️ Погода", "🌤️ Weather", "🌤️ Clima", "🌤️ Wetter", "🌤️ Météo", "🌤️ 天气", "🌤️ 天気", "🌤️ 날씨"]))
 async def handle_weather_button(message: types.Message):
     weather_text = "🌤️ Выберите город или введите название другого города:"
-    await message.answer(weather_text, reply_markup=get_weather_keyboard())
+    await message.answer(weather_text, reply_markup=get_weather_keyboard(message.from_user.id))
 
-@dp.message(F.text == "💎 Тарифы")
+@dp.message(F.text.in_(["💎 Тарифы", "💎 Tariffs", "💎 Tarifas", "💎 Tarife", "💎 Tarifs", "💎 资费", "💎 料金", "💎 요금제"]))
 async def handle_tariffs(message: types.Message):
     tariffs_text = "💎 Доступные тарифы:\n\n"
     
@@ -1108,9 +1606,9 @@ async def handle_tariffs(message: types.Message):
         tariffs_text += f"Лимит: {tariff_info['daily_limits']} запросов/день\n"
         tariffs_text += f"Ожидание: {TARIFF_COOLDOWNS[tariff_id]} сек\n\n"
     
-    await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard())
+    await message.answer(tariffs_text, reply_markup=get_tariffs_keyboard(message.from_user.id))
 
-@dp.message(F.text == "🧹 Очистить память")
+@dp.message(F.text.in_(["🧹 Очистить память", "🧹 Clear memory", "🧹 Limpiar memoria", "🧹 Speicher löschen", "🧹 Effacer mémoire", "🧹 清除记忆", "🧹 メモリをクリア", "🧹 메모리 지우기"]))
 async def handle_clear_memory(message: types.Message):
     """Обработка кнопки очистки памяти"""
     chat_id = message.chat.id
@@ -1125,12 +1623,12 @@ async def handle_clear_memory(message: types.Message):
     await message.answer("✅ Память очищена! Теперь я забыл всю предыдущую беседу и готов к новым вопросам.", 
                         reply_markup=get_main_keyboard(chat_id))
 
-@dp.message(F.text == "⚙️ Настройки")
+@dp.message(F.text.in_(["⚙️ Настройки", "⚙️ Settings", "⚙️ Configuración", "⚙️ Einstellungen", "⚙️ Paramètres", "⚙️ 设置", "⚙️ 設定", "⚙️ 설정"]))
 async def handle_settings(message: types.Message):
     settings_text = "⚙️ Настройки\n\nВыберите категорию:"
-    await message.answer(settings_text, reply_markup=get_settings_keyboard())
+    await message.answer(settings_text, reply_markup=get_settings_keyboard(message.from_user.id))
 
-@dp.message(F.text == "🛠️ Админ-панель")
+@dp.message(F.text.in_(["🛠️ Админ-панель", "🛠️ Admin panel", "🛠️ Panel admin", "🛠️ Admin-Panel", "🛠️ Panel admin", "🛠️ 管理面板", "🛠️ 管理パネル", "🛠️ 관리자 패널"]))
 async def handle_admin_panel(message: types.Message):
     """Обработка кнопки админ-панели"""
     if message.from_user.id != ADMIN_ID:
@@ -1149,9 +1647,9 @@ async def handle_admin_panel(message: types.Message):
         "Выберите действие:"
     )
     
-    await message.answer(admin_text, reply_markup=get_admin_keyboard())
+    await message.answer(admin_text, reply_markup=get_admin_keyboard(message.from_user.id))
 
-@dp.message(F.text == "🌐 Сменить язык")
+@dp.message(F.text.in_(["🌐 Сменить язык", "🌐 Change language", "🌐 Cambiar idioma", "🌐 Sprache ändern", "🌐 Changer langue", "🌐 更改语言", "🌐 言語変更", "🌐 언어 변경"]))
 async def handle_change_language(message: types.Message):
     """Обработка кнопки смены языка"""
     chat_id = message.chat.id
@@ -1174,7 +1672,7 @@ async def handle_change_language(message: types.Message):
 # =======================
 # ===== ОБРАБОТКА КНОПОК НАСТРОЕК =====
 # =======================
-@dp.message(F.text == "🎭 Режимы AI")
+@dp.message(F.text.in_(["🎭 Режимы AI", "🎭 AI Modes", "🎭 Modos AI", "🎭 KI-Modi", "🎭 Modes IA", "🎭 AI模式", "🎭 AIモード", "🎭 AI 모드"]))
 async def handle_ai_modes(message: types.Message):
     modes_text = (
         "🎭 Режимы AI\n\n"
@@ -1185,9 +1683,9 @@ async def handle_ai_modes(message: types.Message):
         "• 🧠 Умный - детальные аналитические ответы\n"
         "• 📚 Помощь с уроками - максимальная помощь с домашними заданиями"
     )
-    await message.answer(modes_text, reply_markup=get_mode_keyboard())
+    await message.answer(modes_text, reply_markup=get_mode_keyboard(message.from_user.id))
 
-@dp.message(F.text == "📚 Помощь с уроками")
+@dp.message(F.text.in_(["📚 Помощь с уроками", "📚 Homework help", "📚 Ayuda tareas", "📚 Hausaufgabenhilfe", "📚 Aide devoirs", "📚 作业帮助", "📚 宿題ヘルプ", "📚 숙제 도움"]))
 async def handle_homework_mode(message: types.Message):
     """Активация режима помощи с уроками"""
     chat_id = message.chat.id
@@ -1203,37 +1701,37 @@ async def handle_homework_mode(message: types.Message):
     mode_text += f"📊 Осталось запросов: {remaining_homework}\n\n"
     mode_text += "Отправьте ваш учебный вопрос или задание:"
     
-    await message.answer(mode_text, reply_markup=get_mode_keyboard())
+    await message.answer(mode_text, reply_markup=get_mode_keyboard(chat_id))
 
-@dp.message(F.text == "💬 Обычный")
+@dp.message(F.text.in_(["💬 Обычный", "💬 Normal", "💬 Normal", "💬 Normal", "💬 Normal", "💬 普通", "💬 通常", "💬 일반"]))
 async def handle_normal_mode(message: types.Message):
     chat_id = message.chat.id
     user_modes[chat_id] = "обычный"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("💬 Обычный режим активирован", reply_markup=get_mode_keyboard())
+    await message.answer("💬 Обычный режим активирован", reply_markup=get_mode_keyboard(chat_id))
 
-@dp.message(F.text == "⚡ Короткий")
+@dp.message(F.text.in_(["⚡ Короткий", "⚡ Short", "⚡ Corto", "⚡ Kurz", "⚡ Court", "⚡ 简短", "⚡ 短い", "⚡ 짧은"]))
 async def handle_short_mode(message: types.Message):
     chat_id = message.chat.id
     user_modes[chat_id] = "короткий"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("⚡ Короткий режим активирован", reply_markup=get_mode_keyboard())
+    await message.answer("⚡ Короткий режим активирован", reply_markup=get_mode_keyboard(chat_id))
 
-@dp.message(F.text == "🧠 Умный")
+@dp.message(F.text.in_(["🧠 Умный", "🧠 Smart", "🧠 Inteligente", "🧠 Intelligent", "🧠 Intelligent", "🧠 智能", "🧠 スマート", "🧠 스마트"]))
 async def handle_smart_mode(message: types.Message):
     chat_id = message.chat.id
     user_modes[chat_id] = "умный"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("🧠 Умный режим активирован", reply_markup=get_mode_keyboard())
+    await message.answer("🧠 Умный режим активирован", reply_markup=get_mode_keyboard(chat_id))
 
-@dp.message(F.text == "🧘 Спокойный")
+@dp.message(F.text.in_(["🧘 Спокойный", "🧘 Calm", "🧘 Calmado", "🧘 Ruhig", "🧘 Calme", "🧘 平静", "🧘 冷静", "🧘 차분한"]))
 async def handle_calm_mode(message: types.Message):
     chat_id = message.chat.id
     user_modes[chat_id] = "спокойный"
     save_data(user_modes, DATA_FILES['user_modes'])
-    await message.answer("🧘 Спокойный режим активирован", reply_markup=get_mode_keyboard())
+    await message.answer("🧘 Спокойный режим активирован", reply_markup=get_mode_keyboard(chat_id))
 
-@dp.message(F.text == "📊 Статистика")
+@dp.message(F.text.in_(["📊 Статистика", "📊 Statistics", "📊 Estadísticas", "📊 Statistiken", "📊 Statistiques", "📊 统计", "📊 統計", "📊 통계"]))
 async def handle_user_statistics(message: types.Message):
     chat_id = message.from_user.id
     total_requests = user_requests_count.get(chat_id, {}).get("total", 0)
@@ -1248,9 +1746,9 @@ async def handle_user_statistics(message: types.Message):
     stats_text += f"💎 Тариф: {TARIFFS[current_tariff]['name']}\n"
     stats_text += f"⏳ Осталось дней: {get_remaining_days(chat_id)}"
     
-    await message.answer(stats_text, reply_markup=get_settings_keyboard())
+    await message.answer(stats_text, reply_markup=get_settings_keyboard(chat_id))
 
-@dp.message(F.text == "🎨 Стиль общения")
+@dp.message(F.text.in_(["🎨 Стиль общения", "🎨 Communication style", "🎨 Estilo comunicación", "🎨 Kommunikationsstil", "🎨 Style communication", "🎨 交流风格", "🎨 コミュニケーションスタイル", "🎨 커뮤니케이션 스타일"]))
 async def handle_communication_style(message: types.Message):
     style_text = (
         "🎨 Стиль общения\n\n"
@@ -1260,37 +1758,37 @@ async def handle_communication_style(message: types.Message):
         "• 🎯 Деловой - профессиональный тон\n"
         "• 🎨 Креативный - творческие ответы"
     )
-    await message.answer(style_text, reply_markup=get_style_keyboard())
+    await message.answer(style_text, reply_markup=get_style_keyboard(message.from_user.id))
 
-@dp.message(F.text == "💫 Дружелюбный")
+@dp.message(F.text.in_(["💫 Дружелюбный", "💫 Friendly", "💫 Amigable", "💫 Freundlich", "💫 Amical", "💫 友好", "💫 友好的", "💫 친근한"]))
 async def handle_friendly_style(message: types.Message):
     chat_id = message.chat.id
     chat_style[chat_id] = "friendly"
     save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("💫 Стиль 'Дружелюбный' установлен", reply_markup=get_style_keyboard())
+    await message.answer("💫 Стиль 'Дружелюбный' установлен", reply_markup=get_style_keyboard(chat_id))
 
-@dp.message(F.text == "⚖️ Сбалансированный")
+@dp.message(F.text.in_(["⚖️ Сбалансированный", "⚖️ Balanced", "⚖️ Equilibrado", "⚖️ Ausgeglichen", "⚖️ Équilibré", "⚖️ 平衡", "⚖️ バランス", "⚖️ 균형 잡힌"]))
 async def handle_balanced_style(message: types.Message):
     chat_id = message.chat.id
     chat_style[chat_id] = "balanced"
     save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("⚖️ Стиль 'Сбалансированный' установлен", reply_markup=get_style_keyboard())
+    await message.answer("⚖️ Стиль 'Сбалансированный' установлен", reply_markup=get_style_keyboard(chat_id))
 
-@dp.message(F.text == "🎯 Деловой")
+@dp.message(F.text.in_(["🎯 Деловой", "🎯 Business", "🎯 Empresarial", "🎯 Geschäftlich", "🎯 Professionnel", "🎯 商务", "🎯 ビジネス", "🎯 비즈니스"]))
 async def handle_business_style(message: types.Message):
     chat_id = message.chat.id
     chat_style[chat_id] = "business"
     save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("🎯 Стиль 'Деловой' установлен", reply_markup=get_style_keyboard())
+    await message.answer("🎯 Стиль 'Деловой' установлен", reply_markup=get_style_keyboard(chat_id))
 
-@dp.message(F.text == "🎨 Креативный")
+@dp.message(F.text.in_(["🎨 Креативный", "🎨 Creative", "🎨 Creativo", "🎨 Kreativ", "🎨 Créatif", "🎨 创意", "🎨 クリエイティブ", "🎨 창의적인"]))
 async def handle_creative_style(message: types.Message):
     chat_id = message.chat.id
     chat_style[chat_id] = "creative"
     save_data(chat_style, DATA_FILES['chat_style'])
-    await message.answer("🎨 Стиль 'Креативный' установлен", reply_markup=get_style_keyboard())
+    await message.answer("🎨 Стиль 'Креативный' установлен", reply_markup=get_style_keyboard(chat_id))
 
-@dp.message(F.text == "ℹ️ Информация")
+@dp.message(F.text.in_(["ℹ️ Информация", "ℹ️ Information", "ℹ️ Información", "ℹ️ Information", "ℹ️ Information", "ℹ️ 信息", "ℹ️ 情報", "ℹ️ 정보"]))
 async def handle_info(message: types.Message):
     info_text = (
         "ℹ️ Информация о GlemixAI\n\n"
@@ -1305,16 +1803,16 @@ async def handle_info(message: types.Message):
         "Версия: 2.1\n"
         "Разработчик: Glemix Team"
     )
-    await message.answer(info_text, reply_markup=get_settings_keyboard())
+    await message.answer(info_text, reply_markup=get_settings_keyboard(message.from_user.id))
 
-@dp.message(F.text == "⚡ Быстрые команды")
+@dp.message(F.text.in_(["⚡ Быстрые команды", "⚡ Quick commands", "⚡ Comandos rápidos", "⚡ Schnellbefehle", "⚡ Commandes rapides", "⚡ 快速命令", "⚡ クイックコマンド", "⚡ 빠른 명령"]))
 async def handle_quick_commands(message: types.Message):
-    await message.answer("⚡ Быстрые команды:", reply_markup=get_quick_commands_keyboard())
+    await message.answer("⚡ Быстрые команды:", reply_markup=get_quick_commands_keyboard(message.from_user.id))
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК ТАРИФОВ =====
 # =======================
-@dp.message(F.text == "📊 Мой тариф")
+@dp.message(F.text.in_(["📊 Мой тариф", "📊 My tariff", "📊 Mi tarifa", "📊 Mein Tarif", "📊 Mon tarif", "📊 我的资费", "📊 私の料金", "📊 내 요금제"]))
 async def handle_my_tariff(message: types.Message):
     chat_id = message.from_user.id
     current_tariff = get_user_tariff(chat_id)
@@ -1330,7 +1828,7 @@ async def handle_my_tariff(message: types.Message):
     tariff_text += f"⚡ Ожидание: {get_user_cooldown(chat_id)} сек\n"
     tariff_text += f"💾 Память: {get_user_memory_limit(chat_id)} сообщений"
     
-    await message.answer(tariff_text, reply_markup=get_tariffs_keyboard())
+    await message.answer(tariff_text, reply_markup=get_tariffs_keyboard(chat_id))
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК ПОГОДЫ =====
@@ -1353,44 +1851,66 @@ async def handle_city_weather(message: types.Message):
     try:
         weather_info = await get_detailed_weather(city)
         await delete_thinking_message(message.chat.id, thinking_msg_id)
-        await message.answer(weather_info, reply_markup=get_weather_keyboard())
+        await message.answer(weather_info, reply_markup=get_weather_keyboard(message.chat.id))
         increment_user_requests(message.chat.id)
         
     except Exception as e:
         await delete_thinking_message(message.chat.id, thinking_msg_id)
-        await message.answer("❌ Ошибка получения погоды. Попробуйте позже.", reply_markup=get_weather_keyboard())
+        await message.answer("❌ Ошибка получения погоды. Попробуйте позже.", reply_markup=get_weather_keyboard(message.chat.id))
 
-@dp.message(F.text == "🌃 Другой город")
+@dp.message(F.text.in_(["🌃 Другой город", "🌃 Other city", "🌃 Otra ciudad", "🌃 Andere Stadt", "🌃 Autre ville", "🌃 其他城市", "🌃 他の都市", "🌃 다른 도시"]))
 async def handle_other_city(message: types.Message):
-    await message.answer("🏙️ Введите название города (например: 'Погода в Москве' или просто 'Москва'):", reply_markup=get_weather_keyboard())
+    lang = user_language.get(message.chat.id, "ru")
+    texts = {
+        "ru": "🏙️ Введите название города (например: 'Погода в Москве' или просто 'Москва'):",
+        "en": "🏙️ Enter city name (e.g.: 'Weather in Moscow' or just 'Moscow'):",
+        "es": "🏙️ Ingrese nombre de ciudad (ej.: 'Clima en Moscú' o solo 'Moscú'):",
+        "de": "🏙️ Geben Sie den Stadtnamen ein (z.B.: 'Wetter in Moskau' oder nur 'Moskau'):",
+        "fr": "🏙️ Entrez le nom de la ville (ex.: 'Météo à Moscou' ou juste 'Moscou'):",
+        "zh": "🏙️ 输入城市名称（例如：'莫斯科天气' 或仅 '莫斯科'）：",
+        "ja": "🏙️ 都市名を入力（例：'モスクワの天気' または 'モスクワ'）：",
+        "ko": "🏙️ 도시 이름 입력 (예: '모스크바 날씨' 또는 '모스크바'):"
+    }
+    await message.answer(texts.get(lang, texts["ru"]), reply_markup=get_weather_keyboard(message.chat.id))
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК БЫСТРЫХ КОМАНД =====
 # =======================
-@dp.message(F.text == "📝 Конвертер валют")
+@dp.message(F.text.in_(["📝 Конвертер валют", "📝 Currency converter", "📝 Conversor moneda", "📝 Währungsrechner", "📝 Convertisseur devise", "📝 货币转换器", "📝 通貨コンバーター", "📝 통화 변환기"]))
 async def handle_currency_converter(message: types.Message):
-    await message.answer("💱 Курсы валют:\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽", reply_markup=get_quick_commands_keyboard())
+    await message.answer("💱 Курсы валют:\nUSD → 90.5 ₽\nEUR → 98.2 ₽\nCNY → 12.5 ₽", reply_markup=get_quick_commands_keyboard(message.chat.id))
 
-@dp.message(F.text == "🎯 Случайный выбор")
+@dp.message(F.text.in_(["🎯 Случайный выбор", "🎯 Random choice", "🎯 Elección aleatoria", "🎯 Zufällige Wahl", "🎯 Choix aléatoire", "🎯 随机选择", "🎯 ランダム選択", "🎯 무작위 선택"]))
 async def handle_random_choice(message: types.Message):
     choices = ["🍎 Яблоко", "🍌 Банан", "🍊 Апельсин", "🍇 Виноград", "🍓 Клубника"]
-    await message.answer(f"🎯 Случайный выбор: {random.choice(choices)}", reply_markup=get_quick_commands_keyboard())
+    await message.answer(f"🎯 Случайный выбор: {random.choice(choices)}", reply_markup=get_quick_commands_keyboard(message.chat.id))
 
-@dp.message(F.text == "📅 Текущая дата")
+@dp.message(F.text.in_(["📅 Текущая дата", "📅 Current date", "📅 Fecha actual", "📅 Aktuelles Datum", "📅 Date actuelle", "📅 当前日期", "📅 現在の日付", "📅 현재 날짜"]))
 async def handle_current_date(message: types.Message):
     current_date = datetime.now().strftime("%d.%m.%Y")
-    await message.answer(f"📅 Сегодня: {current_date}", reply_markup=get_quick_commands_keyboard())
+    await message.answer(f"📅 Сегодня: {current_date}", reply_markup=get_quick_commands_keyboard(message.chat.id))
 
-@dp.message(F.text == "⏰ Текущее время")
+@dp.message(F.text.in_(["⏰ Текущее время", "⏰ Current time", "⏰ Hora actual", "⏰ Aktuelle Zeit", "⏰ Heure actuelle", "⏰ 当前时间", "⏰ 現在時刻", "⏰ 현재 시간"]))
 async def handle_current_time(message: types.Message):
     current_time = datetime.now().strftime("%H:%M:%S")
-    await message.answer(f"⏰ Текущее время: {current_time}", reply_markup=get_quick_commands_keyboard())
+    await message.answer(f"⏰ Текущее время: {current_time}", reply_markup=get_quick_commands_keyboard(message.chat.id))
 
-@dp.message(F.text == "🔢 Калькулятор")
+@dp.message(F.text.in_(["🔢 Калькулятор", "🔢 Calculator", "🔢 Calculadora", "🔢 Rechner", "🔢 Calculatrice", "🔢 计算器", "🔢 計算機", "🔢 계산기"]))
 async def handle_calculator(message: types.Message):
-    await message.answer("🔢 Введите математическое выражение (например: 2+2, 10*5, 100/4):", reply_markup=get_quick_commands_keyboard())
+    lang = user_language.get(message.chat.id, "ru")
+    texts = {
+        "ru": "🔢 Введите математическое выражение (например: 2+2, 10*5, 100/4):",
+        "en": "🔢 Enter mathematical expression (e.g.: 2+2, 10*5, 100/4):",
+        "es": "🔢 Ingrese expresión matemática (ej.: 2+2, 10*5, 100/4):",
+        "de": "🔢 Geben Sie einen mathematischen Ausdruck ein (z.B.: 2+2, 10*5, 100/4):",
+        "fr": "🔢 Entrez une expression mathématique (ex.: 2+2, 10*5, 100/4):",
+        "zh": "🔢 输入数学表达式（例如：2+2, 10*5, 100/4）：",
+        "ja": "🔢 数式を入力（例：2+2, 10*5, 100/4）：",
+        "ko": "🔢 수학 표현식 입력 (예: 2+2, 10*5, 100/4):"
+    }
+    await message.answer(texts.get(lang, texts["ru"]), reply_markup=get_quick_commands_keyboard(message.chat.id))
 
-@dp.message(F.text == "🎁 Сюрприз")
+@dp.message(F.text.in_(["🎁 Сюрприз", "🎁 Surprise", "🎁 Sorpresa", "🎁 Überraschung", "🎁 Surprise", "🎁 惊喜", "🎁 サプライズ", "🎁 서프라이즈"]))
 async def handle_surprise(message: types.Message):
     surprises = [
         "🎉 Вот ваш сюрприз! Хорошего дня!",
@@ -1399,16 +1919,16 @@ async def handle_surprise(message: types.Message):
         "🎯 Вы лучший!",
         "🌈 Желаю отличного настроения!"
     ]
-    await message.answer(random.choice(surprises), reply_markup=get_quick_commands_keyboard())
+    await message.answer(random.choice(surprises), reply_markup=get_quick_commands_keyboard(message.chat.id))
 
 # =======================
 # ===== ОБРАБОТКА КНОПОК НАЗАД =====
 # =======================
-@dp.message(F.text == "⬅️ Назад")
+@dp.message(F.text.in_(["⬅️ Назад", "⬅️ Back", "⬅️ Atrás", "⬅️ Zurück", "⬅️ Retour", "⬅️ 返回", "⬅️ 戻る", "⬅️ 뒤로"]))
 async def handle_back(message: types.Message):
-    await message.answer("⚙️ Настройки:", reply_markup=get_settings_keyboard())
+    await message.answer("⚙️ Настройки:", reply_markup=get_settings_keyboard(message.from_user.id))
 
-@dp.message(F.text == "⬅️ Главное меню")
+@dp.message(F.text.in_(["⬅️ Главное меню", "⬅️ Main menu", "⬅️ Menú principal", "⬅️ Hauptmenü", "⬅️ Menu principal", "⬅️ 主菜单", "⬅️ メインメニュー", "⬅️ 메인 메뉴"]))
 async def handle_admin_back(message: types.Message):
     """Возврат в главное меню из админ-панели"""
     await message.answer("Главное меню", reply_markup=get_main_keyboard(message.from_user.id))
@@ -1416,7 +1936,7 @@ async def handle_admin_back(message: types.Message):
 # =======================
 # ===== ОБРАБОТКА АДМИН-ПАНЕЛИ =====
 # =======================
-@dp.message(F.text == "👥 Статистика пользователей")
+@dp.message(F.text.in_(["👥 Статистика пользователей", "👥 User statistics", "👥 Estadísticas usuarios", "👥 Benutzerstatistiken", "👥 Statistiques utilisateurs", "👥 用户统计", "👥 ユーザー統計", "👥 사용자 통계"]))
 async def handle_user_stats(message: types.Message):
     """Статистика пользователей"""
     if message.from_user.id != ADMIN_ID:
@@ -1446,9 +1966,9 @@ async def handle_user_stats(message: types.Message):
     for tariff, count in tariff_stats.items():
         stats_text += f"• {TARIFFS[tariff]['name']}: {count} пользователей\n"
     
-    await message.answer(stats_text, reply_markup=get_admin_keyboard())
+    await message.answer(stats_text, reply_markup=get_admin_keyboard(message.from_user.id))
 
-@dp.message(F.text == "📊 Общая статистика")
+@dp.message(F.text.in_(["📊 Общая статистика", "📊 General statistics", "📊 Estadísticas generales", "📊 Allgemeine Statistiken", "📊 Statistiques générales", "📊 总体统计", "📊 全体統計", "📊 일반 통계"]))
 async def handle_general_stats(message: types.Message):
     """Общая статистика"""
     if message.from_user.id != ADMIN_ID:
@@ -1475,9 +1995,9 @@ async def handle_general_stats(message: types.Message):
         except:
             stats_text += f"{i}. ID {user_id}: {data.get('total', 0)} запросов\n"
     
-    await message.answer(stats_text, reply_markup=get_admin_keyboard())
+    await message.answer(stats_text, reply_markup=get_admin_keyboard(message.from_user.id))
 
-@dp.message(F.text == "📋 Логи действий")
+@dp.message(F.text.in_(["📋 Логи действий", "📋 Action logs", "📋 Registros acciones", "📋 Aktionsprotokolle", "📋 Journaux actions", "📋 操作日志", "📋 アクションログ", "📋 작업 로그"]))
 async def handle_action_logs(message: types.Message):
     """Показывает логи действий админа"""
     if message.from_user.id != ADMIN_ID:
@@ -1485,7 +2005,7 @@ async def handle_action_logs(message: types.Message):
         return
     
     if not admin_logs:
-        await message.answer("📋 Логи действий пусты", reply_markup=get_admin_keyboard())
+        await message.answer("📋 Логи действий пусты", reply_markup=get_admin_keyboard(message.from_user.id))
         return
     
     # Показываем последние 10 записей
@@ -1498,7 +2018,7 @@ async def handle_action_logs(message: types.Message):
         target = f" (пользователь {log['target_user']})" if log.get('target_user') else ""
         logs_text += f"🕒 {timestamp}: {action}{target}\n"
     
-    await message.answer(logs_text, reply_markup=get_admin_keyboard())
+    await message.answer(logs_text, reply_markup=get_admin_keyboard(message.from_user.id))
 
 # =======================
 # ===== ОСНОВНАЯ ЛОГИКА ОБРАБОТКИ =====
@@ -1646,20 +2166,71 @@ async def handle_text(message: types.Message):
         # Главное меню
         "🚀 Начать работу", "🌟 Обо мне", "⚙️ Настройки", "❓ Помощь", "🌤️ Погода", 
         "💎 Тарифы", "🧹 Очистить память", "🛠️ Админ-панель",
+        "🚀 Start work", "🌟 About me", "⚙️ Settings", "❓ Help", "🌤️ Weather",
+        "💎 Tariffs", "🧹 Clear memory", "🛠️ Admin panel",
+        "🚀 Iniciar trabajo", "🌟 Sobre mí", "⚙️ Configuración", "❓ Ayuda", "🌤️ Clima",
+        "💎 Tarifas", "🧹 Limpiar memoria", "🛠️ Panel admin",
+        "🚀 Arbeit beginnen", "🌟 Über mich", "⚙️ Einstellungen", "❓ Hilfe", "🌤️ Wetter",
+        "💎 Tarife", "🧹 Speicher löschen", "🛠️ Admin-Panel",
+        "🚀 Commencer", "🌟 À propos", "⚙️ Paramètres", "❓ Aide", "🌤️ Météo",
+        "💎 Tarifs", "🧹 Effacer mémoire", "🛠️ Panel admin",
+        "🚀 开始工作", "🌟 关于我", "⚙️ 设置", "❓ 帮助", "🌤️ 天气",
+        "💎 资费", "🧹 清除记忆", "🛠️ 管理面板",
+        "🚀 仕事を始める", "🌟 私について", "⚙️ 設定", "❓ ヘルプ", "🌤️ 天気",
+        "💎 料金", "🧹 メモリをクリア", "🛠️ 管理パネル",
+        "🚀 작업 시작", "🌟 내 정보", "⚙️ 설정", "❓ 도움말", "🌤️ 날씨",
+        "💎 요금제", "🧹 메모리 지우기", "🛠️ 관리자 패널",
         # Настройки
         "🎭 Режимы AI", "📊 Статистика", "🎨 Стиль общения", "ℹ️ Информация", "⚡ Быстрые команды", "🌐 Сменить язык", "⬅️ Назад",
+        "🎭 AI Modes", "📊 Statistics", "🎨 Communication style", "ℹ️ Information", "⚡ Quick commands", "🌐 Change language", "⬅️ Back",
+        "🎭 Modos AI", "📊 Estadísticas", "🎨 Estilo comunicación", "ℹ️ Información", "⚡ Comandos rápidos", "🌐 Cambiar idioma", "⬅️ Atrás",
+        "🎭 KI-Modi", "📊 Statistiken", "🎨 Kommunikationsstil", "ℹ️ Information", "⚡ Schnellbefehle", "🌐 Sprache ändern", "⬅️ Zurück",
+        "🎭 Modes IA", "📊 Statistiques", "🎨 Style communication", "ℹ️ Information", "⚡ Commandes rapides", "🌐 Changer langue", "⬅️ Retour",
+        "🎭 AI模式", "📊 统计", "🎨 交流风格", "ℹ️ 信息", "⚡ 快速命令", "🌐 更改语言", "⬅️ 返回",
+        "🎭 AIモード", "📊 統計", "🎨 コミュニケーションスタイル", "ℹ️ 情報", "⚡ クイックコマンド", "🌐 言語変更", "⬅️ 戻る",
+        "🎭 AI 모드", "📊 통계", "🎨 커뮤니케이션 스타일", "ℹ️ 정보", "⚡ 빠른 명령", "🌐 언어 변경", "⬅️ 뒤로",
         # Режимы AI
         "🧘 Спокойный", "💬 Обычный", "⚡ Короткий", "🧠 Умный", "📚 Помощь с уроками",
+        "🧘 Calm", "💬 Normal", "⚡ Short", "🧠 Smart", "📚 Homework help",
+        "🧘 Calmado", "💬 Normal", "⚡ Corto", "🧠 Inteligente", "📚 Ayuda tareas",
+        "🧘 Ruhig", "💬 Normal", "⚡ Kurz", "🧠 Intelligent", "📚 Hausaufgabenhilfe",
+        "🧘 Calme", "💬 Normal", "⚡ Court", "🧠 Intelligent", "📚 Aide devoirs",
+        "🧘 平静", "💬 普通", "⚡ 简短", "🧠 智能", "📚 作业帮助",
+        "🧘 冷静", "💬 通常", "⚡ 短い", "🧠 スマート", "📚 宿題ヘルプ",
+        "🧘 차분한", "💬 일반", "⚡ 짧은", "🧠 스마트", "📚 숙제 도움",
         # Стили общения
         "💫 Дружелюбный", "⚖️ Сбалансированный", "🎯 Деловой", "🎨 Креативный",
+        "💫 Friendly", "⚖️ Balanced", "🎯 Business", "🎨 Creative",
+        "💫 Amigable", "⚖️ Equilibrado", "🎯 Empresarial", "🎨 Creativo",
+        "💫 Freundlich", "⚖️ Ausgeglichen", "🎯 Geschäftlich", "🎨 Kreativ",
+        "💫 Amical", "⚖️ Équilibré", "🎯 Professionnel", "🎨 Créatif",
+        "💫 友好", "⚖️ 平衡", "🎯 商务", "🎨 创意",
+        "💫 友好的", "⚖️ バランス", "🎯 ビジネス", "🎨 クリエイティブ",
+        "💫 친근한", "⚖️ 균형 잡힌", "🎯 비즈니스", "🎨 창의적인",
         # Тарифы
         "🚀 Default", "⭐ Pro", "💎 Advanced", "👑 Ultimate", "📊 Мой тариф",
+        "📊 My tariff", "📊 Mi tarifa", "📊 Mein Tarif", "📊 Mon tarif", "📊 我的资费", "📊 私の料金", "📊 내 요금제",
         # Погода
         "🌆 Москва", "🏛️ Санкт-Петербург", "🗽 Нью-Йорк", "🌉 Лондон", "🗼 Париж", "🏯 Токио", "🌃 Другой город",
+        "🌃 Other city", "🌃 Otra ciudad", "🌃 Andere Stadt", "🌃 Autre ville", "🌃 其他城市", "🌃 他の都市", "🌃 다른 도시",
         # Быстрые команды
         "📝 Конвертер валют", "🎯 Случайный выбор", "📅 Текущая дата", "⏰ Текущее время", "🔢 Калькулятор", "🎁 Сюрприз",
+        "📝 Currency converter", "🎯 Random choice", "📅 Current date", "⏰ Current time", "🔢 Calculator", "🎁 Surprise",
+        "📝 Conversor moneda", "🎯 Elección aleatoria", "📅 Fecha actual", "⏰ Hora actual", "🔢 Calculadora", "🎁 Sorpresa",
+        "📝 Währungsrechner", "🎯 Zufällige Wahl", "📅 Aktuelles Datum", "⏰ Aktuelle Zeit", "🔢 Rechner", "🎁 Überraschung",
+        "📝 Convertisseur devise", "🎯 Choix aléatoire", "📅 Date actuelle", "⏰ Heure actuelle", "🔢 Calculatrice", "🎁 Surprise",
+        "📝 货币转换器", "🎯 随机选择", "📅 当前日期", "⏰ 当前时间", "🔢 计算器", "🎁 惊喜",
+        "📝 通貨コンバーター", "🎯 ランダム選択", "📅 現在の日付", "⏰ 現在時刻", "🔢 計算機", "🎁 サプライズ",
+        "📝 통화 변환기", "🎯 무작위 선택", "📅 현재 날짜", "⏰ 현재 시간", "🔢 계산기", "🎁 서프라이즈",
         # Админ-панель
         "👥 Статистика пользователей", "📊 Общая статистика", "📋 Логи действий", "⬅️ Главное меню",
+        "👥 User statistics", "📊 General statistics", "📋 Action logs", "⬅️ Main menu",
+        "👥 Estadísticas usuarios", "📊 Estadísticas generales", "📋 Registros acciones", "⬅️ Menú principal",
+        "👥 Benutzerstatistiken", "📊 Allgemeine Statistiken", "📋 Aktionsprotokolle", "⬅️ Hauptmenü",
+        "👥 Statistiques utilisateurs", "📊 Statistiques générales", "📋 Journaux actions", "⬅️ Menu principal",
+        "👥 用户统计", "📊 总体统计", "📋 操作日志", "⬅️ 主菜单",
+        "👥 ユーザー統計", "📊 全体統計", "📋 アクションログ", "⬅️ メインメニュー",
+        "👥 사용자 통계", "📊 일반 통계", "📋 작업 로그", "⬅️ 메인 메뉴",
         # Языки
         "🇷🇺 Русский", "🇺🇸 English", "🇪🇸 Español", "🇩🇪 Deutsch", "🇫🇷 Français", "🇨🇳 中文", "🇯🇵 日本語", "🇰🇷 한국어"
     ]
@@ -1695,11 +2266,11 @@ async def handle_text(message: types.Message):
     user_text_lower = user_text.lower()
     
     # Погода - улучшенное распознавание
-    if any(word in user_text_lower for word in ["погода", "weather"]) or any(city in user_text_lower for city in CITY_MAPPING.keys()):
+    if any(word in user_text_lower for word in ["погода", "weather", "clima", "wetter", "météo", "天气", "天気", "날씨"]) or any(city in user_text_lower for city in CITY_MAPPING.keys()):
         city = user_text_lower
         
         # Извлекаем название города из разных форматов запросов
-        for key in ["погода", "weather", "в", "в городе", "какая погода в", "какая погода"]:
+        for key in ["погода", "weather", "clima", "wetter", "météo", "天气", "天気", "날씨", "в", "в городе", "какая погода в", "какая погода", "in", "city", "stadt", "ville", "城市", "都市", "도시"]:
             city = city.replace(key, "").strip()
         
         # Убираем знаки препинания
@@ -1718,25 +2289,25 @@ async def handle_text(message: types.Message):
             return
     
     # Перевод текста с фото
-    if any(word in user_text_lower for word in ["переведи", "перевод", "translate"]) and chat_id in user_last_photo_text:
+    if any(word in user_text_lower for word in ["переведи", "перевод", "translate", "traducir", "übersetzen", "traduire", "翻译", "翻訳", "번역"]) and chat_id in user_last_photo_text:
         target_language = "русский"
-        if "на английский" in user_text_lower:
+        if "на английский" in user_text_lower or "на английском" in user_text_lower or "to english" in user_text_lower:
             target_language = "английский"
-        elif "на русский" in user_text_lower:
+        elif "на русский" in user_text_lower or "на русском" in user_text_lower or "to russian" in user_text_lower:
             target_language = "русский"
-        elif "на испанский" in user_text_lower:
+        elif "на испанский" in user_text_lower or "al español" in user_text_lower:
             target_language = "испанский"
-        elif "на французский" in user_text_lower:
+        elif "на французский" in user_text_lower or "au français" in user_text_lower:
             target_language = "французский"
-        elif "на немецкий" in user_text_lower:
+        elif "на немецкий" in user_text_lower or "auf deutsch" in user_text_lower:
             target_language = "немецкий"
         elif "на итальянский" in user_text_lower:
             target_language = "итальянский"
-        elif "на китайский" in user_text_lower:
+        elif "на китайский" in user_text_lower or "到中文" in user_text_lower:
             target_language = "китайский"
-        elif "на японский" in user_text_lower:
+        elif "на японский" in user_text_lower or "到日语" in user_text_lower:
             target_language = "японский"
-        elif "на корейский" in user_text_lower:
+        elif "на корейский" in user_text_lower or "到韩语" in user_text_lower:
             target_language = "корейский"
         
         thinking_msg_id = await send_thinking_message(chat_id)
@@ -1753,7 +2324,7 @@ async def handle_text(message: types.Message):
     
     # Дополнительные запросы о фото (расскажи об этом, сделай короче и т.д.)
     if chat_id in user_last_photo_text and user_last_photo_text[chat_id]:
-        if any(word in user_text_lower for word in ["расскажи", "объясни", "что это", "про что", "опиши"]):
+        if any(word in user_text_lower for word in ["расскажи", "объясни", "что это", "про что", "опиши", "tell", "explain", "describe", "contar", "explicar", "描述", "説明", "설명"]):
             # Анализ содержимого фото
             thinking_msg_id = await send_thinking_message(chat_id)
             try:
@@ -1768,7 +2339,7 @@ async def handle_text(message: types.Message):
                 await message.answer("❌ Ошибка анализа содержимого.", reply_markup=get_main_keyboard(chat_id))
                 return
         
-        elif any(word in user_text_lower for word in ["короче", "сократи", "суть", "основное"]):
+        elif any(word in user_text_lower for word in ["короче", "сократи", "суть", "основное", "shorter", "summarize", "shorter", "resumir", "kurz", "court", "缩短", "要約", "요약"]):
             # Сокращение текста
             thinking_msg_id = await send_thinking_message(chat_id)
             try:
@@ -1784,11 +2355,11 @@ async def handle_text(message: types.Message):
                 return
     
     # Калькулятор
-    if any(word in user_text_lower for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate"]):
+    if any(word in user_text_lower for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate", "calcular", "berechnen", "calculer", "计算", "計算", "계산"]):
         try:
             # Извлекаем математическое выражение
             expr = user_text_lower
-            for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate"]:
+            for word in ["посчитай", "сколько будет", "вычисли", "calc", "calculate", "calcular", "berechnen", "calculer", "计算", "計算", "계산"]:
                 expr = expr.replace(word, "")
             expr = expr.strip()
             
